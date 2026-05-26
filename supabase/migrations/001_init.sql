@@ -90,6 +90,10 @@ create index if not exists idx_outreach_status       on outreach_drafts(status);
 -- VIEWS (convenient for dashboard queries)
 -- ─────────────────────────────────────────────
 
+-- HAPUS VIEW LAMA AGAR TIDAK BENTROK TIPE DATA (FIX ERROR 42P16)
+drop view if exists dashboard_leads;
+drop view if exists latest_scores;
+
 -- Get the latest intent score per company
 create or replace view latest_scores as
   select distinct on (company_id)
@@ -104,18 +108,18 @@ create or replace view latest_scores as
 -- Dashboard: companies with their latest score, sorted by score
 create or replace view dashboard_leads as
   select
-    c.id                                                                           as company_id,
-    c.name                                                                         as company_name,
+    c.id                                                               as company_id,
+    c.name                                                             as company_name,
     c.domain,
     c.industry,
     c.stage,
-    ls.score                                                                       as intent_score,
+    ls.score                                                           as intent_score,
     ls.key_signals,
     ls.scored_at,
-    (select count(*)
+    (select count(*)::int
        from outreach_drafts od
       where od.company_id = c.id and od.status = 'draft')  as draft_count,
-    (select count(*)
+    (select count(*)::int
        from outreach_drafts od
       where od.company_id = c.id and od.status = 'sent')   as sent_count
   from companies c
