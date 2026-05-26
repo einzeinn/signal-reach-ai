@@ -9,7 +9,7 @@ import { calculateIntentScore } from '@/lib/services/gemini';
 import { validateScoreBody } from '@/lib/validators/signals.validator';
 
 // --- 2 MAGICAL LINES FOR VERCEL ---
-export const maxDuration = 60; // Force Vercel to give up to 60 seconds
+export const runtime = 'edge'; // Force Vercel to give up to 60 seconds
 export const dynamic = 'force-dynamic'; // Disable Next.js cache
 // ----------------------------------
 
