@@ -17,7 +17,7 @@ type FeedItem = {
 };
 
 // List of target companies for demo feed
-const TARGET_COMPANIES = ['Acme Corp', 'Nexus AI', 'Buildify Inc', 'Dataloop', 'Pylon Systems'];
+const TARGET_COMPANIES = ['Similarweb', 'Zoominfo', 'Apify', 'Semrush', 'Sensor Tower'];
 
 async function getLiveFeed(): Promise<FeedItem[]> {
   const provider = getDataProvider();

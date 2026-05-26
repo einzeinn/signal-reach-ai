@@ -22,7 +22,7 @@ export default function OutreachContainer({ leads }: { leads: EnrichedLead[] }) 
   );
 
   const [selectedCompany, setSelectedCompany] = useState<string>(
-    localLeads[0]?.company_name ?? 'Acme Corp'
+     localLeads[0]?.company_name ?? 'Similarweb'
   );
 
   const panelRef = useRef<HTMLDivElement>(null);

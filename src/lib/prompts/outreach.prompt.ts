@@ -47,7 +47,7 @@ ${contextBlock || '- No specific signals available, use general approach.'}
 ## Output Format (ONLY return valid JSON, no markdown, no explanation):
 {
   "subject": "7 AI hires + legacy CRM = a bottleneck you don't need",
-  "body": "Hi Sarah,\\n\\nI noticed Acme Corp posted 7 AI Engineer roles in the last 30 days — a clear sign you're scaling your ML infrastructure fast.\\n\\nOn r/sysadmin, someone flagged that your current CRM is making cross-team handoffs painful. That's a tax on every new hire you're onboarding.\\n\\nWe help teams cut that bottleneck by 60% in under two weeks — no migration required.\\n\\nWould a 15-minute call this week make sense?\\n\\n— Iky\\nSignalReach AI"
+  "body": "Hi Sarah,\n\nI noticed Similarweb is actively hiring for a Senior Data Engineer – Web Intelligence role — a clear sign they're scaling their web collection infrastructure.\n\nOn r/webscraping, their team is openly struggling with Cloudflare and Akamai blocks at scale. That's exactly the bottleneck Bright Data's Web Unlocker was built to eliminate.\n\nWe help data teams like Similarweb's cut through bot detection in hours, not months — no proxy rotation headaches required.\n\nWould a 15-minute call this week make sense?\n\n— Iky\nSignalReach AI"
 }
 `.trim();
 }
