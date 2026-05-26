@@ -1,3 +1,6 @@
+// src/app/signals/page.tsx
+export const dynamic = 'force-dynamic';
+
 import { Suspense } from 'react';
 import Sidebar from '../../components/ui/sidebar';
 import { Activity, Briefcase, MessageSquare, Newspaper, ExternalLink } from 'lucide-react';
@@ -71,7 +74,7 @@ async function getLiveFeed(): Promise<FeedItem[]> {
           meta: 'News Article',
           date: new Date(article.publishedAt),
           url: article.url,
-        });
+          });
       });
     })
   );

@@ -116,11 +116,10 @@ async function triggerAndPoll<T>(
 }
 
 // ─────────────────────────────────────────────────────────
-// Raw response shapes from Bright Data (adjust to match
-// your actual dataset schema in the BD dashboard)
+// Raw response shapes from Bright Data
 // ─────────────────────────────────────────────────────────
 interface BrightDataJob {
-  title       : string;
+  title        : string;
   company_name: string;
   date_posted : string;
   description : string;
@@ -128,7 +127,7 @@ interface BrightDataJob {
 }
 
 interface BrightDataReddit {
-  title     : string;
+  title      : string;
   selftext  : string;
   subreddit : string;
   score     : number;
@@ -178,7 +177,8 @@ export class BrightDataProvider implements IDataProvider {
       async () => {
         const rows = await triggerAndPoll<BrightDataJob>(
           DATASET_IDS.linkedinJobs,
-          { keyword: company, location: 'Worldwide' }
+          // DIUBAH: Menggunakan format URL untuk Linkedin Jobs
+          { url: `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(company)}` }
         );
         return rows.map(r => ({
           role    : r.title,
@@ -196,7 +196,8 @@ export class BrightDataProvider implements IDataProvider {
       async () => {
         const rows = await triggerAndPoll<BrightDataReddit>(
           DATASET_IDS.reddit,
-          { keyword: topic }
+          // DIUBAH: Menggunakan format URL untuk Reddit
+          { url: `https://www.reddit.com/search/?q=${encodeURIComponent(topic)}` }
         );
         return rows.map(r => ({
           subreddit: r.subreddit,
@@ -214,7 +215,8 @@ export class BrightDataProvider implements IDataProvider {
       async () => {
         const rows = await triggerAndPoll<BrightDataNews>(
           DATASET_IDS.googleNews,
-          { keyword: `${company} funding OR expansion OR growth` }
+          // DIUBAH: Menggunakan format URL untuk Google News
+          { url: `https://news.google.com/search?q=${encodeURIComponent(company + ' funding OR expansion OR growth')}` }
         );
         return rows.map(r => ({
           headline   : r.title,

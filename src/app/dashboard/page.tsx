@@ -1,3 +1,6 @@
+// src/app/dashboard/page.tsx
+export const dynamic = 'force-dynamic';
+
 import { Suspense } from 'react';
 import { getDataProvider } from '../../lib/data-providers';
 import OutreachContainer from '../../components/signals/OutreachContainer';
