@@ -10,16 +10,32 @@
 
 import { IDataProvider, JobSignal, RedditSignal, NewsSignal } from './types';
 import { retryWithBackoff } from '../utils';
+import { MockDataProvider } from './mock.provider';
 
 const BRIGHTDATA_API_BASE = 'https://api.brightdata.com/datasets/v3';
 
 // These Dataset IDs come from your Bright Data dashboard.
 // Replace with your actual dataset IDs after creating them.
 const DATASET_IDS = {
-  linkedinJobs : process.env.BRIGHTDATA_DATASET_LINKEDIN  ?? 'gd_lpfll7v5hcjjljdl7m', // example ID
-  reddit       : process.env.BRIGHTDATA_DATASET_REDDIT    ?? 'gd_lvz8ah06192smhhc',   // example ID
-  googleNews   : process.env.BRIGHTDATA_DATASET_NEWS      ?? 'gd_lk538t2k2p1k3oos71', // example ID
+  linkedinJobs : process.env.BRIGHTDATA_DATASET_LINKEDIN  || '',
+  reddit       : process.env.BRIGHTDATA_DATASET_REDDIT    || '',
+  googleNews   : process.env.BRIGHTDATA_DATASET_NEWS      || '',
 };
+
+// Validate dataset IDs are configured
+function validateDatasets() {
+  if (!DATASET_IDS.linkedinJobs || !DATASET_IDS.reddit || !DATASET_IDS.googleNews) {
+    console.warn(
+      '[BrightData Provider] Missing dataset IDs. Please configure:\n' +
+      '  - BRIGHTDATA_DATASET_LINKEDIN\n' +
+      '  - BRIGHTDATA_DATASET_REDDIT\n' +
+      '  - BRIGHTDATA_DATASET_NEWS\n' +
+      'in your .env.local file. Falling back to mock provider.'
+    );
+    return false;
+  }
+  return true;
+}
 
 /**
  * Triggers a Bright Data snapshot (scrape job) and polls until complete.
@@ -129,49 +145,85 @@ interface BrightDataNews {
 // Provider Implementation
 // ─────────────────────────────────────────────────────────
 export class BrightDataProvider implements IDataProvider {
+  private fallbackProvider: MockDataProvider;
+  private isConfiguredProperly: boolean;
+
+  constructor() {
+    this.fallbackProvider = new MockDataProvider();
+    this.isConfiguredProperly = validateDatasets();
+  }
+
+  private async withFallback<T>(
+    apiCall: () => Promise<T[]>,
+    mockFallback: () => Promise<T[]>
+  ): Promise<T[]> {
+    if (!this.isConfiguredProperly) {
+      console.info('[BrightData Provider] Using mock data due to missing dataset IDs');
+      return mockFallback();
+    }
+
+    try {
+      return await apiCall();
+    } catch (error) {
+      console.warn(
+        '[BrightData Provider] API call failed, falling back to mock data:',
+        error instanceof Error ? error.message : String(error)
+      );
+      return mockFallback();
+    }
+  }
 
   async scrapeJobSignals(company: string): Promise<JobSignal[]> {
-    const rows = await triggerAndPoll<BrightDataJob>(
-      DATASET_IDS.linkedinJobs,
-      { keyword: company, location: 'Worldwide' }
+    return this.withFallback(
+      async () => {
+        const rows = await triggerAndPoll<BrightDataJob>(
+          DATASET_IDS.linkedinJobs,
+          { keyword: company, location: 'Worldwide' }
+        );
+        return rows.map(r => ({
+          role    : r.title,
+          postedAt: r.date_posted,
+          rawText : r.description,
+          source  : 'LinkedIn',
+        }));
+      },
+      () => this.fallbackProvider.scrapeJobSignals(company)
     );
-
-    // Map Bright Data schema → our internal JobSignal schema
-    return rows.map(r => ({
-      role    : r.title,
-      postedAt: r.date_posted,
-      rawText : r.description,
-      source  : 'LinkedIn',
-    }));
   }
 
   async scrapeRedditPainPoints(topic: string): Promise<RedditSignal[]> {
-    const rows = await triggerAndPoll<BrightDataReddit>(
-      DATASET_IDS.reddit,
-      { keyword: topic }
+    return this.withFallback(
+      async () => {
+        const rows = await triggerAndPoll<BrightDataReddit>(
+          DATASET_IDS.reddit,
+          { keyword: topic }
+        );
+        return rows.map(r => ({
+          subreddit: r.subreddit,
+          title    : r.title,
+          body     : r.selftext,
+          upvotes  : r.score,
+        }));
+      },
+      () => this.fallbackProvider.scrapeRedditPainPoints(topic)
     );
-
-    // Map Bright Data schema → our internal RedditSignal schema
-    return rows.map(r => ({
-      subreddit: r.subreddit,
-      title    : r.title,
-      body     : r.selftext,
-      upvotes  : r.score,
-    }));
   }
 
   async scrapeNewsSignals(company: string): Promise<NewsSignal[]> {
-    const rows = await triggerAndPoll<BrightDataNews>(
-      DATASET_IDS.googleNews,
-      { keyword: `${company} funding OR expansion OR growth` }
+    return this.withFallback(
+      async () => {
+        const rows = await triggerAndPoll<BrightDataNews>(
+          DATASET_IDS.googleNews,
+          { keyword: `${company} funding OR expansion OR growth` }
+        );
+        return rows.map(r => ({
+          headline   : r.title,
+          summary    : r.description,
+          publishedAt: r.date,
+          url        : r.url,
+        }));
+      },
+      () => this.fallbackProvider.scrapeNewsSignals(company)
     );
-
-    // Map Bright Data schema → our internal NewsSignal schema
-    return rows.map(r => ({
-      headline   : r.title,
-      summary    : r.description,
-      publishedAt: r.date,
-      url        : r.url,
-    }));
   }
 }
