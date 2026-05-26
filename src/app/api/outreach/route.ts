@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '../../../lib/supabase/client';
 import { getDataProvider } from '../../../lib/data-providers';
 
+export const maxDuration = 60; // Force Vercel to give up to 60 seconds
+export const dynamic = 'force-dynamic'; // Disable Next.js cache to always live
+
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 10;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;

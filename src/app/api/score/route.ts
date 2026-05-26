@@ -8,6 +8,11 @@ import { getDataProvider } from '@/lib/data-providers';
 import { calculateIntentScore } from '@/lib/services/gemini';
 import { validateScoreBody } from '@/lib/validators/signals.validator';
 
+// --- 2 MAGICAL LINES FOR VERCEL ---
+export const maxDuration = 60; // Force Vercel to give up to 60 seconds
+export const dynamic = 'force-dynamic'; // Disable Next.js cache
+// ----------------------------------
+
 // --- Rate Limiting Setup ---
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 10; // Max 10 requests

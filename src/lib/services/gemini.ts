@@ -4,9 +4,9 @@ import { scoringPrompt } from '../prompts/scoring.prompt';
 import { outreachPrompt } from '../prompts/outreach.prompt';
 import { JobSignal, RedditSignal, NewsSignal } from '../data-providers/types';
 
-// Inisialisasi SDK baru dari @google/genai
-// Secara otomatis akan mencari GEMINI_API_KEY di environment variables, 
-// tapi kita deklarasikan eksplisit untuk keamanan tipe (type safety).
+// Initialize new SDK from @google/genai
+// Automatically will search for GEMINI_API_KEY in environment variables,
+// but we declare it explicitly for type safety.
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const MODEL_NAME = "gemini-2.5-flash";
