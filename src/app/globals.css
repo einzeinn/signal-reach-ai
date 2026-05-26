@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+/* ============================================
+   Tailwind v4 — custom tokens pakai @theme
+   ============================================ */
+@theme {
+  --color-neo-teal: #00C7B7;
+  --color-neo-yellow: #FEF08A;
+  --color-neo-black: #000000;
+  --color-neo-white: #FFFFFF;
+
+  --shadow-comic:       4px 4px 0px 0px #000000;
+  --shadow-comic-hover: 2px 2px 0px 0px #000000;
+}
+
+/* ============================================
+   Base styles
+   ============================================ */
+@layer base {
+  body {
+    @apply bg-white text-black antialiased;
+    font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  ::selection {
+    background-color: #00C7B7;
+    color: #000000;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 900;
+  }
+
+  ::-webkit-scrollbar        { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #fff; border-left: 1px solid #000; }
+  ::-webkit-scrollbar-thumb { background: #000; }
+}
+
+/* ============================================
+   Custom utility classes
+   ============================================ */
+@layer utilities {
+  .bg-halftone {
+    background-image: radial-gradient(#000000 1px, transparent 1px);
+    background-size: 12px 12px;
+    background-color: #FEF08A;
+  }
+
+  /* Line Art Pattern (Grid / Striped Book) that is thin and elegant */
+  .bg-grid {
+    background-color: var(--color-neo-white);
+    background-image: 
+      linear-gradient(rgba(0, 0, 0, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 0, 0, 0.06) 1px, transparent 1px);
+    background-size: 32px 32px;
+    background-position: center center;
+  }
+
+  .shadow-comic {
+    box-shadow: 4px 4px 0px 0px #000000;
+  }
+
+  .shadow-comic-hover {
+    box-shadow: 2px 2px 0px 0px #000000;
+  }
+}

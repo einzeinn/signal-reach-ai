@@ -1,0 +1,141 @@
+{
+  "jobs": [
+    {
+      "company": "Acme Corp",
+      "role": "Head of IT Infrastructure",
+      "postedAt": "2026-05-18T10:00:00Z",
+      "rawText": "Looking for an experienced IT leader to overhaul our legacy CRM systems and modernize our data pipelines post Series B.",
+      "source": "LinkedIn"
+    },
+    {
+      "company": "Acme Corp",
+      "role": "Senior DevOps Engineer",
+      "postedAt": "2026-05-17T09:00:00Z",
+      "rawText": "Help us build the infrastructure to support our rapidly scaling ML workloads. Experience with AWS and Kubernetes required.",
+      "source": "LinkedIn"
+    },
+    {
+      "company": "Nexus AI",
+      "role": "ML Infrastructure Engineer",
+      "postedAt": "2026-05-19T08:00:00Z",
+      "rawText": "Join our platform team to build the backbone of our LLM training and evaluation pipelines. Must have experience with distributed systems.",
+      "source": "LinkedIn"
+    },
+    {
+      "company": "Nexus AI",
+      "role": "Senior Backend Engineer",
+      "postedAt": "2026-05-16T11:00:00Z",
+      "rawText": "We are scaling our API platform from 10k to 1M requests/day. Looking for someone to lead our backend reliability efforts.",
+      "source": "LinkedIn"
+    },
+    {
+      "company": "Buildify Inc",
+      "role": "Developer Relations Engineer",
+      "postedAt": "2026-05-15T14:00:00Z",
+      "rawText": "Help us grow our developer community. You will create integrations, write tutorials, and represent Buildify at conferences.",
+      "source": "LinkedIn"
+    },
+    {
+      "company": "Dataloop",
+      "role": "Head of Data Engineering",
+      "postedAt": "2026-05-14T10:30:00Z",
+      "rawText": "Lead our data infrastructure team. We process over 5TB of customer data daily and need someone to scale our pipeline architecture.",
+      "source": "LinkedIn"
+    },
+    {
+      "company": "Pylon Systems",
+      "role": "Site Reliability Engineer",
+      "postedAt": "2026-05-18T07:00:00Z",
+      "rawText": "Own the reliability of our global infrastructure serving enterprise clients. On-call rotation required. Kubernetes, Terraform experience essential.",
+      "source": "LinkedIn"
+    }
+  ],
+  "reddit": [
+    {
+      "topic": "Acme Corp",
+      "subreddit": "r/sysadmin",
+      "title": "Acme Corp's current internal tools are a nightmare",
+      "body": "Does anyone know what CRM Acme uses? I heard from a friend there that they are desperate to migrate but the executive team is dragging their feet. Apparently onboarding a new enterprise client takes them 3 weeks because of manual data entry.",
+      "upvotes": 142
+    },
+    {
+      "topic": "Acme Corp",
+      "subreddit": "r/devops",
+      "title": "Anyone else think Acme Corp's infra team is understaffed?",
+      "body": "They've been posting SRE and DevOps roles for 6 months straight. Something big must be happening internally — probably a migration.",
+      "upvotes": 67
+    },
+    {
+      "topic": "Nexus AI",
+      "subreddit": "r/MachineLearning",
+      "title": "Bottlenecks in LLM evaluation pipelines — Nexus AI example",
+      "body": "Our team has been struggling with evaluation cycle time for 3 months. We batch our evals but the feedback loop is still 48 hours. Anyone dealt with this at scale? We use a similar setup to Nexus AI.",
+      "upvotes": 289
+    },
+    {
+      "topic": "Nexus AI",
+      "subreddit": "r/LocalLLaMA",
+      "title": "Nexus AI is hiring aggressively — what are they building?",
+      "body": "Saw like 8 new ML roles posted this week alone. Clearly something big is coming. Their current inference costs must be eating them alive if they need this much infra talent.",
+      "upvotes": 103
+    },
+    {
+      "topic": "Buildify Inc",
+      "subreddit": "r/webdev",
+      "title": "Buildify's SDK integration is still broken after 3 weeks",
+      "body": "Has anyone got the Buildify webhooks to work reliably? Their docs are outdated and the support team is slow. Starting to look at alternatives.",
+      "upvotes": 201
+    },
+    {
+      "topic": "Dataloop",
+      "subreddit": "r/dataengineering",
+      "title": "Dataloop's pipeline is down AGAIN",
+      "body": "Third outage this month. We're a paying customer and the SLA is clearly not being met. Their team seems overwhelmed. Anyone migrating away?",
+      "upvotes": 345
+    },
+    {
+      "topic": "Pylon Systems",
+      "subreddit": "r/sysadmin",
+      "title": "Pylon Systems enterprise contract renewal — worth it?",
+      "body": "Our Pylon contract is up in 60 days. The product is solid but their pricing jumped 40% this year. Evaluating alternatives now. They haven't been responsive to our feedback either.",
+      "upvotes": 88
+    }
+  ],
+  "news": [
+    {
+      "company": "Acme Corp",
+      "headline": "Acme Corp Secures Series B Funding to Modernize Operations",
+      "summary": "The $50M round will be used to upgrade their tech stack and expand the sales team across Southeast Asia. CEO cited 'legacy infrastructure debt' as the primary bottleneck to growth.",
+      "publishedAt": "2026-05-15T08:30:00Z",
+      "url": "https://techcrunch.mock/acme-corp-series-b"
+    },
+    {
+      "company": "Nexus AI",
+      "headline": "Nexus AI Raises $12M Seed to Build Next-Gen ML Platform",
+      "summary": "The funding will be used to scale their model evaluation infrastructure and expand their enterprise customer base. Investors cite growing demand for reliable LLM testing tools.",
+      "publishedAt": "2026-05-10T09:00:00Z",
+      "url": "https://venturebeat.mock/nexus-ai-seed"
+    },
+    {
+      "company": "Buildify Inc",
+      "headline": "Buildify Inc Hits 50,000 Developers on Their Platform",
+      "summary": "The DevTools startup announces a major growth milestone and hints at an upcoming enterprise tier launch. Plans to double the team in the next 6 months.",
+      "publishedAt": "2026-05-12T11:00:00Z",
+      "url": "https://dev.to/mock/buildify-50k"
+    },
+    {
+      "company": "Dataloop",
+      "headline": "Dataloop Closes Series A, Eyes Enterprise Expansion",
+      "summary": "$20M Series A led by prominent VC. Dataloop plans to invest heavily in data reliability and compliance features following customer demand from Fortune 500 companies.",
+      "publishedAt": "2026-05-08T07:00:00Z",
+      "url": "https://techcrunch.mock/dataloop-series-a"
+    },
+    {
+      "company": "Pylon Systems",
+      "headline": "Pylon Systems Reports Record ARR Growth Amid Infrastructure Boom",
+      "summary": "The Series C company reports 3x ARR growth year-over-year, driven by demand for cloud infrastructure management. However, customer satisfaction scores have dipped as the team struggles to scale support.",
+      "publishedAt": "2026-05-05T10:00:00Z",
+      "url": "https://siliconvalley.mock/pylon-systems-arr"
+    }
+  ]
+}
