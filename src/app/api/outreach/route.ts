@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '../../../lib/supabase/client';
 import { getDataProvider } from '../../../lib/data-providers';
 
-export const dynamic = 'force-dynamic'; // Disable Next.js cache to always live
-export const maxDuration = 60; // Allow Vercel to run for maximum 60 seconds
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 10;
@@ -12,17 +12,14 @@ const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const record = rateLimitStore.get(ip);
-
   if (!record || now > record.resetAt) {
     rateLimitStore.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
     return true;
   }
-
   if (record.count < RATE_LIMIT) {
     record.count++;
     return true;
   }
-
   return false;
 }
 
@@ -35,6 +32,15 @@ function getClientIp(request: NextRequest): string {
 }
 
 export async function POST(request: NextRequest) {
+  // DEBUG: cek semua env vars
+  console.log('[DEBUG ENV]', {
+    GEMINI: !!process.env.GEMINI_API_KEY,
+    GEMINI_VALUE: process.env.GEMINI_API_KEY?.slice(0, 10),
+    DATA_PROVIDER: process.env.DATA_PROVIDER,
+    SUPABASE: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NODE_ENV: process.env.NODE_ENV,
+  });
+
   const clientIp = getClientIp(request);
 
   if (!checkRateLimit(clientIp)) {
@@ -65,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Outreach API] Generating personalized email via Gemini...`);
     const apiKey = process.env.GEMINI_API_KEY;
-    
+
     if (!apiKey) {
       throw new Error('GEMINI_API_KEY is not configured in .env');
     }
@@ -88,17 +94,16 @@ export async function POST(request: NextRequest) {
       2. Subject line must be catchy, short, and relevant to the signals.
       3. Start with "Hi [First Name],", followed by a double line break.
       4. Paragraph 1: Mention a specific signal from the data above. 
-         IMPORTANT: Analyze the Reddit discussions to figure out the actual pain point. DO NOT copy-paste raw search query operators like "OR", "AND", "pain", "bottleneck" literally. Phrase it naturally (e.g., "saw some discussions around scaling challenges" or "noticed your team is navigating infrastructure hurdles").
-      5. Paragraph 2: Soft pitch our value proposition at SignalReach AI (streamlining IT workflows, zero-downtime cloud infrastructure, and saving engineering hours).
+         IMPORTANT: Analyze the Reddit discussions to figure out the actual pain point. DO NOT copy-paste raw search query operators like "OR", "AND", "pain", "bottleneck" literally. Phrase it naturally.
+      5. Paragraph 2: Soft pitch our value proposition at SignalReach AI.
       6. Call to Action: Ask for a 10-minute introductory call next week.
       7. Sign off as "Best,\n\nAlex Mercer\nEnterprise Account Executive\nSignalReach AI".
     `;
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-    
-    // Add timeout to Gemini API call
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
       const geminiResponse = await fetch(geminiUrl, {
@@ -124,29 +129,20 @@ export async function POST(request: NextRequest) {
 
       if (!geminiResponse.ok) {
         const errData = await geminiResponse.text();
-        console.error('[Outreach API] Gemini HTTP Error:', {
-          status: geminiResponse.status,
-          statusText: geminiResponse.statusText,
-          body: errData.substring(0, 500)
-        });
         throw new Error(`Gemini API returned ${geminiResponse.status}: ${errData.substring(0, 200)}`);
       }
 
       const aiData = await geminiResponse.json();
-      
+
       if (!aiData.candidates?.[0]?.content?.parts?.[0]?.text) {
-        console.error('[Outreach API] Invalid Gemini response structure:', JSON.stringify(aiData).substring(0, 300));
         throw new Error('Invalid response structure from Gemini API');
       }
 
       let responseText = aiData.candidates[0].content.parts[0].text;
-      
-      // CLEAN MARKDOWN BACKTICKS FROM GEMINI (PREVENT ERROR 500)
       responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      
+
       const generatedData = JSON.parse(responseText);
 
-      console.log(`[Outreach API] Saving draft to Supabase...`);
       try {
         const supabase = await createServerClient();
         await supabase.from('outreach_drafts').insert({
@@ -157,7 +153,7 @@ export async function POST(request: NextRequest) {
           status: 'draft'
         });
       } catch (dbError) {
-        console.warn('[Outreach API] Database insert failed, but returning AI data to UI anyway:', dbError);
+        console.warn('[Outreach API] DB insert failed:', dbError);
       }
 
       return NextResponse.json({
@@ -165,14 +161,11 @@ export async function POST(request: NextRequest) {
         message: 'Draft generated successfully',
         data: generatedData
       });
+
     } catch (geminiError) {
       clearTimeout(timeoutId);
-      console.error('[Outreach API] Gemini API Error:', {
-        message: geminiError instanceof Error ? geminiError.message : String(geminiError),
-        timestamp: new Date().toISOString()
-      });
-      
-      // Return fallback response
+      console.error('[Outreach API] Gemini Error:', geminiError instanceof Error ? geminiError.message : geminiError);
+
       return NextResponse.json({
         success: true,
         message: 'Using template draft due to AI generation delay',
@@ -180,7 +173,7 @@ export async function POST(request: NextRequest) {
           subject: `Exciting signals from ${companyName} - Let's connect`,
           body: `Hi there,\n\nWe noticed some exciting activity at ${companyName} and thought this might be a good time to connect.\n\nWould you be available for a quick 10-minute call next week?\n\nBest,\n\nAlex Mercer\nEnterprise Account Executive\nSignalReach AI`
         }
-      }, { status: 200 });
+      });
     }
 
   } catch (error) {
