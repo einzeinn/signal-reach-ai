@@ -1,22 +1,13 @@
-// src/app/api/score/route.ts
-// POST /api/score
-// Body: { company: string }
-// Fetches all signals, then asks Gemini to calculate an intent score
-
 import { NextRequest, NextResponse } from 'next/server';
-import { getDataProvider } from '@/lib/data-providers';
-import { calculateIntentScore } from '@/lib/services/gemini';
-import { validateScoreBody } from '@/lib/validators/signals.validator';
+import { createServerClient } from '../../../lib/supabase/client';
+import { getDataProvider } from '../../../lib/data-providers';
 
-// --- 2 MAGICAL LINES FOR VERCEL ---
+export const dynamic = 'force-dynamic'; // Disable Next.js cache to always live
+export const maxDuration = 60; // Allow Vercel to run for maximum 60 seconds
 
-export const dynamic = 'force-dynamic'; // Disable Next.js cache
-// ----------------------------------
-
-// --- Rate Limiting Setup ---
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 10; // Max 10 requests
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // Per 1 minute
+const RATE_LIMIT = 10;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
@@ -42,11 +33,10 @@ function getClientIp(request: NextRequest): string {
     'unknown'
   );
 }
-// ---------------------------
 
 export async function POST(request: NextRequest) {
-  // 0. Security Check: Rate Limiting
   const clientIp = getClientIp(request);
+
   if (!checkRateLimit(clientIp)) {
     return NextResponse.json(
       { error: 'Too many requests. Please wait before trying again.' },
@@ -54,60 +44,113 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // 1. Parse & validate body
-  let body: unknown;
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
-  }
+    const body = await request.json();
+    const { companyId, companyName } = body;
 
-  const validation = validateScoreBody(body);
-  if (!validation.success) {
-    return NextResponse.json({ error: validation.error }, { status: 400 });
-  }
-
-  const { company } = validation.data;
-  const provider = getDataProvider();
-
-  try {
-    // 2. Fetch all signals in parallel
-    const [jobs, reddit, news] = await Promise.all([
-      provider.scrapeJobSignals(company),
-      provider.scrapeRedditPainPoints(company),
-      provider.scrapeNewsSignals(company),
-    ]);
-
-    // 3. Pass all signals to Gemini for analysis
-    const result = await calculateIntentScore(company, jobs, reddit, news);
-
-    // 4. Return structured score result
-    return NextResponse.json({
-      company,
-      scoredAt: new Date().toISOString(),
-      score: result.score,
-      reasoning: result.reasoning,
-      keySignals: result.signals,
-      // Include raw signal counts for transparency
-      signalSummary: {
-        jobCount: jobs.length,
-        redditCount: reddit.length,
-        newsCount: news.length,
-      },
-    });
-  } catch (error) {
-    console.error('[/api/score] Error calculating score:', error);
-
-    // Check if it's a Gemini API key error specifically
-    if (error instanceof Error && error.message.includes('GEMINI_API_KEY')) {
+    if (!companyName) {
       return NextResponse.json(
-        { error: 'AI service is not configured. Please set GEMINI_API_KEY.' },
-        { status: 503 }
+        { error: 'Company name is required to generate outreach.' },
+        { status: 400 }
       );
     }
 
+    console.log(`[Outreach API] Fetching live signals for ${companyName}...`);
+    const provider = getDataProvider();
+    const [jobs, reddit, news] = await Promise.all([
+      provider.scrapeJobSignals(companyName),
+      provider.scrapeRedditPainPoints(companyName),
+      provider.scrapeNewsSignals(companyName),
+    ]);
+
+    console.log(`[Outreach API] Generating personalized email via Gemini...`);
+    const apiKey = process.env.GEMINI_API_KEY;
+    
+    if (!apiKey) {
+      throw new Error('GEMINI_API_KEY is not configured in .env');
+    }
+
+    const jobSignalsStr = jobs.length > 0 ? jobs.map(j => j.role).join(', ') : 'No specific roles';
+    const redditSignalsStr = reddit.length > 0 ? reddit.map(r => r.title).join(' | ') : 'No specific discussions';
+    const newsSignalsStr = news.length > 0 ? news.map(n => n.headline).join(' | ') : 'No recent news';
+
+    const prompt = `
+      You are an elite Enterprise B2B Account Executive.
+      Write a highly personalized cold email to a prospect at ${companyName}.
+      
+      Here are the raw real-time signals we found about them today:
+      - Hiring Roles: ${jobSignalsStr}
+      - Reddit Discussions/Pain Points: ${redditSignalsStr}
+      - Recent News: ${newsSignalsStr}
+      
+      Email Requirements:
+      1. Write the email in English with a professional, confident B2B tone. MUST use double line breaks (\n\n) between paragraphs for readability.
+      2. Subject line must be catchy, short, and relevant to the signals.
+      3. Start with "Hi [First Name],", followed by a double line break.
+      4. Paragraph 1: Mention a specific signal from the data above. 
+         IMPORTANT: Analyze the Reddit discussions to figure out the actual pain point. DO NOT copy-paste raw search query operators like "OR", "AND", "pain", "bottleneck" literally. Phrase it naturally (e.g., "saw some discussions around scaling challenges" or "noticed your team is navigating infrastructure hurdles").
+      5. Paragraph 2: Soft pitch our value proposition at SignalReach AI (streamlining IT workflows, zero-downtime cloud infrastructure, and saving engineering hours).
+      6. Call to Action: Ask for a 10-minute introductory call next week.
+      7. Sign off as "Best,\n\nAlex Mercer\nEnterprise Account Executive\nSignalReach AI".
+    `;
+
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const geminiResponse = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              subject: { type: "STRING" },
+              body: { type: "STRING" }
+            }
+          }
+        }
+      })
+    });
+
+    if (!geminiResponse.ok) {
+      const errData = await geminiResponse.text();
+      console.error('Gemini Error:', errData);
+      throw new Error('Failed to generate email with Gemini AI');
+    }
+
+    const aiData = await geminiResponse.json();
+    let responseText = aiData.candidates[0].content.parts[0].text;
+    
+    // BERSIHKAN MARKDOWN BACKTICKS DARI GEMINI (MENCEGAH ERROR 500)
+    responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    const generatedData = JSON.parse(responseText);
+
+    console.log(`[Outreach API] Saving draft to Supabase...`);
+    try {
+      const supabase = await createServerClient();
+      await supabase.from('outreach_drafts').insert({
+        company_id: companyId,
+        recipient_name: 'Decision Maker',
+        subject: generatedData.subject,
+        body: generatedData.body,
+        status: 'draft'
+      });
+    } catch (dbError) {
+      console.warn('[Outreach API] Database insert failed, but returning AI data to UI anyway:', dbError);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Draft generated successfully',
+      data: generatedData
+    });
+
+  } catch (error) {
+    console.error('[Outreach API] Internal Error:', error);
     return NextResponse.json(
-      { error: 'Failed to calculate intent score. Please try again.' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     );
   }

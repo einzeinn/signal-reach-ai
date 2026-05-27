@@ -1,19 +1,12 @@
-// src/app/api/signals/route.ts
-// GET /api/signals?company=Acme+Corp
-// Fetches and aggregates all signals (jobs, reddit, news) for a target company
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getDataProvider } from '@/lib/data-providers';
 import { validateSignalsQuery } from '@/lib/validators/signals.validator';
 
-// --- 2 MAGICAL LINES FOR VERCEL ---
-
 export const dynamic = 'force-dynamic'; // Disable Next.js cache
-// ----------------------------------
+export const maxDuration = 60; // Allow Vercel to run for maximum 60 seconds
 
-// --- Rate Limiting Setup ---
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 20; // Max 20 requests per minute for GET signals
+const RATE_LIMIT = 20; 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
 function checkRateLimit(ip: string): boolean {
@@ -40,10 +33,8 @@ function getClientIp(request: NextRequest): string {
     'unknown'
   );
 }
-// ---------------------------
 
 export async function GET(request: NextRequest) {
-  // 0. Security Check: Rate Limiting
   const clientIp = getClientIp(request);
   if (!checkRateLimit(clientIp)) {
     return NextResponse.json(
@@ -52,7 +43,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // 1. Validate input
   const validation = validateSignalsQuery(request.nextUrl.searchParams);
   if (!validation.success) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
@@ -62,14 +52,12 @@ export async function GET(request: NextRequest) {
   const provider = getDataProvider();
 
   try {
-    // 2. Fetch all signals in parallel for maximum speed
     const [jobs, reddit, news] = await Promise.all([
       provider.scrapeJobSignals(company),
       provider.scrapeRedditPainPoints(company),
       provider.scrapeNewsSignals(company),
     ]);
 
-    // 3. Return aggregated signals
     return NextResponse.json({
       company,
       fetchedAt: new Date().toISOString(),
@@ -78,7 +66,6 @@ export async function GET(request: NextRequest) {
         reddit,
         news,
       },
-      // Signal count summary for quick reference
       summary: {
         totalSignals: jobs.length + reddit.length + news.length,
         jobCount: jobs.length,

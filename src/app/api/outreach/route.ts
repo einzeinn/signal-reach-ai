@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '../../../lib/supabase/client';
 import { getDataProvider } from '../../../lib/data-providers';
 
-
 export const dynamic = 'force-dynamic'; // Disable Next.js cache to always live
+export const maxDuration = 60; // Allow Vercel to run for maximum 60 seconds
 
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 10;
@@ -37,7 +37,6 @@ function getClientIp(request: NextRequest): string {
 export async function POST(request: NextRequest) {
   const clientIp = getClientIp(request);
 
-  // 1. Security Check: Rate Limiting
   if (!checkRateLimit(clientIp)) {
     return NextResponse.json(
       { error: 'Too many requests. Please wait before trying again.' },
@@ -56,9 +55,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ==========================================
-    // STEP 1: DATA GATHERING (LIVE BRIGHT DATA)
-    // ==========================================
     console.log(`[Outreach API] Fetching live signals for ${companyName}...`);
     const provider = getDataProvider();
     const [jobs, reddit, news] = await Promise.all([
@@ -67,9 +63,6 @@ export async function POST(request: NextRequest) {
       provider.scrapeNewsSignals(companyName),
     ]);
 
-    // ==========================================
-    // STEP 2: AI GENERATION (GEMINI AI)
-    // ==========================================
     console.log(`[Outreach API] Generating personalized email via Gemini...`);
     const apiKey = process.env.GEMINI_API_KEY;
     
@@ -77,7 +70,6 @@ export async function POST(request: NextRequest) {
       throw new Error('GEMINI_API_KEY is not configured in .env');
     }
 
-    // Summarize signals for Gemini
     const jobSignalsStr = jobs.length > 0 ? jobs.map(j => j.role).join(', ') : 'No specific roles';
     const redditSignalsStr = reddit.length > 0 ? reddit.map(r => r.title).join(' | ') : 'No specific discussions';
     const newsSignalsStr = news.length > 0 ? news.map(n => n.headline).join(' | ') : 'No recent news';
@@ -102,7 +94,6 @@ export async function POST(request: NextRequest) {
       7. Sign off as "Best,\n\nAlex Mercer\nEnterprise Account Executive\nSignalReach AI".
     `;
 
-    // Call Gemini API (using forced JSON format)
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     const geminiResponse = await fetch(geminiUrl, {
       method: 'POST',
@@ -129,18 +120,19 @@ export async function POST(request: NextRequest) {
     }
 
     const aiData = await geminiResponse.json();
-    const responseText = aiData.candidates[0].content.parts[0].text;
+    let responseText = aiData.candidates[0].content.parts[0].text;
+    
+    // BERSIHKAN MARKDOWN BACKTICKS DARI GEMINI (MENCEGAH ERROR 500)
+    responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
     const generatedData = JSON.parse(responseText);
 
-    // ==========================================
-    // STEP 3: SAVE TO DATABASE (SUPABASE)
-    // ==========================================
     console.log(`[Outreach API] Saving draft to Supabase...`);
     try {
       const supabase = await createServerClient();
       await supabase.from('outreach_drafts').insert({
         company_id: companyId,
-        recipient_name: 'Decision Maker', // Bisa diedit nanti di UI
+        recipient_name: 'Decision Maker',
         subject: generatedData.subject,
         body: generatedData.body,
         status: 'draft'
@@ -149,9 +141,6 @@ export async function POST(request: NextRequest) {
       console.warn('[Outreach API] Database insert failed, but returning AI data to UI anyway:', dbError);
     }
 
-    // ==========================================
-    // STEP 4: RETURN RESPONSE
-    // ==========================================
     return NextResponse.json({
       success: true,
       message: 'Draft generated successfully',

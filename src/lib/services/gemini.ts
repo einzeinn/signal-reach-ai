@@ -1,14 +1,11 @@
-// src/lib/services/gemini.service.ts
+// src/lib/services/gemini.ts
 import { GoogleGenAI } from '@google/genai';
 import { scoringPrompt } from '../prompts/scoring.prompt';
 import { outreachPrompt } from '../prompts/outreach.prompt';
 import { JobSignal, RedditSignal, NewsSignal } from '../data-providers/types';
 
 // Initialize new SDK from @google/genai
-// Automatically will search for GEMINI_API_KEY in environment variables,
-// but we declare it explicitly for type safety.
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 const MODEL_NAME = "gemini-2.5-flash";
 
 export async function calculateIntentScore(
@@ -21,22 +18,22 @@ export async function calculateIntentScore(
 
   const prompt = scoringPrompt(company, jobs, reddit, news);
   
-  // Memanggil API menggunakan struktur SDK terbaru
   const response = await ai.models.generateContent({
     model: MODEL_NAME,
     contents: prompt,
     config: {
-      // Memaksa model merespons dalam format JSON murni
       responseMimeType: "application/json"
     }
   });
 
-  // response.text di SDK baru adalah sebuah getter/property langsung
   const text = response.text;
   if (!text) throw new Error('Empty response from Gemini API');
 
+  // CLEAN MARKDOWN BACKTICKS FROM GEMINI (PREVENT ERROR 500)
+  const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
   try {
-    return JSON.parse(text);
+    return JSON.parse(cleanText);
   } catch (err) {
     throw new Error(`Failed to parse Gemini response: ${err instanceof Error ? err.message : String(err)}`);
   }
@@ -54,12 +51,10 @@ export async function generateOutreachEmail(
 
   const prompt = outreachPrompt(company, recipientName, intentScore, jobs, reddit, news);
   
-  // Memanggil API menggunakan struktur SDK terbaru
   const response = await ai.models.generateContent({
     model: MODEL_NAME,
     contents: prompt,
     config: {
-      // Memaksa model merespons dalam format JSON murni
       responseMimeType: "application/json"
     }
   });
@@ -67,8 +62,11 @@ export async function generateOutreachEmail(
   const text = response.text;
   if (!text) throw new Error('Empty response from Gemini API');
 
+  // CLEAN MARKDOWN BACKTICKS FROM GEMINI (PREVENT ERROR 500)
+  const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
   try {
-    return JSON.parse(text);
+    return JSON.parse(cleanText);
   } catch (err) {
     throw new Error(`Failed to parse Gemini response: ${err instanceof Error ? err.message : String(err)}`);
   }
