@@ -39,9 +39,8 @@ function validateDatasets() {
 
 /**
  * Triggers a Bright Data snapshot (scrape job) and polls until complete.
- * Includes exponential backoff retry logic for resilience.
- * Returns the resulting dataset rows.
- * WARNING: Wrapped with aggressive timeout (15 seconds) to prevent Vercel timeouts.
+ * Optimized for Vercel's 60-second maxDuration.
+ * Uses aggressive polling (up to 50 seconds) to utilize full Vercel timeout.
  */
 async function triggerAndPoll<T>(
   datasetId: string,
@@ -50,100 +49,107 @@ async function triggerAndPoll<T>(
   const token = process.env.BRIGHTDATA_API_TOKEN;
   if (!token) throw new Error('BRIGHTDATA_API_TOKEN is not set.');
 
-  // Wrap entire operation in a 15-second timeout for Vercel compatibility
-  const timeoutPromise = new Promise<T[]>((_, reject) =>
-    setTimeout(() => reject(new Error('Bright Data API timeout after 15 seconds')), 15000)
-  );
+  const operationStartTime = Date.now();
+  const OPERATION_TIMEOUT_MS = 50000; // 50 seconds (leaves 10s buffer for Vercel)
 
-  const apiPromise = (async () => {
-    // Step 1: Trigger a new snapshot with retry logic
-    const triggerRes = await retryWithBackoff(
-      async () => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second fetch timeout
-
-        try {
-          const response = await fetch(
-            `${BRIGHTDATA_API_BASE}/trigger?dataset_id=${datasetId}&include_errors=true`,
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify([filters]),
-              signal: controller.signal,
-            }
-          );
-          clearTimeout(timeoutId);
-
-          if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`Bright Data trigger failed (${response.status}): ${errText}`);
-          }
-          return response;
-        } catch (e) {
-          clearTimeout(timeoutId);
-          throw e;
-        }
-      },
-      2,
-      500
-    );
-
-    const { snapshot_id } = await triggerRes.json() as { snapshot_id: string };
-
-    // Step 2: Poll for completion with aggressive timeout (max 10 seconds total polling)
-    const MAX_POLLS = 3; // Only 3 polls instead of 20
-    const POLL_DELAY = 2000; // 2 seconds between polls
-
-    for (let i = 0; i < MAX_POLLS; i++) {
-      await new Promise((r) => setTimeout(r, POLL_DELAY));
+  // Step 1: Trigger a new snapshot with retry logic
+  const triggerRes = await retryWithBackoff(
+    async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second fetch timeout
 
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second fetch timeout
-
-        const statusRes = await retryWithBackoff(
-          async () => {
-            try {
-              return await fetch(
-                `${BRIGHTDATA_API_BASE}/snapshot/${snapshot_id}?format=json`,
-                {
-                  headers: { 'Authorization': `Bearer ${token}` },
-                  signal: controller.signal,
-                }
-              );
-            } finally {
-              clearTimeout(timeoutId);
-            }
-          },
-          1,
-          300
+        const response = await fetch(
+          `${BRIGHTDATA_API_BASE}/trigger?dataset_id=${datasetId}&include_errors=true`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify([filters]),
+            signal: controller.signal,
+          }
         );
+        clearTimeout(timeoutId);
 
-        if (statusRes.status === 200) {
-          // Data is ready
-          const rows = (await statusRes.json()) as T[];
-          return rows;
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Bright Data trigger failed (${response.status}): ${errText}`);
         }
-
-        if (statusRes.status === 202) {
-          // Still processing — continue polling
-          continue;
-        }
-
-        throw new Error(`Unexpected Bright Data status: ${statusRes.status}`);
-      } catch (error) {
-        console.warn(`Poll attempt ${i + 1} failed:`, error);
-        if (i === MAX_POLLS - 1) throw error;
+        return response;
+      } catch (e) {
+        clearTimeout(timeoutId);
+        throw e;
       }
+    },
+    3,
+    500
+  );
+
+  const { snapshot_id } = await triggerRes.json() as { snapshot_id: string };
+  console.log(`[BrightData] Triggered snapshot: ${snapshot_id}, polling for completion...`);
+
+  // Step 2: Poll for completion with extended timeout (max 25 polls × 2 seconds = 50 seconds)
+  const MAX_POLLS = 25;
+  const POLL_DELAY_MS = 2000; // 2 seconds between polls
+
+  for (let i = 0; i < MAX_POLLS; i++) {
+    // Check if we're running out of time
+    const elapsedMs = Date.now() - operationStartTime;
+    if (elapsedMs > OPERATION_TIMEOUT_MS) {
+      throw new Error(
+        `Bright Data scrape timed out after ${Math.round(elapsedMs / 1000)} seconds. ` +
+        `Snapshot ${snapshot_id} is still processing.`
+      );
     }
 
-    throw new Error('Bright Data scrape timed out after polling.');
-  })();
+    // Wait before polling
+    await new Promise((r) => setTimeout(r, POLL_DELAY_MS));
 
-  return Promise.race([apiPromise, timeoutPromise]);
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second fetch timeout
+
+      const statusRes = await retryWithBackoff(
+        async () => {
+          try {
+            return await fetch(
+              `${BRIGHTDATA_API_BASE}/snapshot/${snapshot_id}?format=json`,
+              {
+                headers: { 'Authorization': `Bearer ${token}` },
+                signal: controller.signal,
+              }
+            );
+          } finally {
+            clearTimeout(timeoutId);
+          }
+        },
+        2,
+        300
+      );
+
+      if (statusRes.status === 200) {
+        // Data is ready
+        console.log(`[BrightData] Snapshot completed after ${i + 1} polls`);
+        const rows = (await statusRes.json()) as T[];
+        return rows;
+      }
+
+      if (statusRes.status === 202) {
+        // Still processing — continue polling
+        console.log(`[BrightData] Poll ${i + 1}/${MAX_POLLS}: Still processing...`);
+        continue;
+      }
+
+      throw new Error(`Unexpected Bright Data status: ${statusRes.status}`);
+    } catch (error) {
+      console.warn(`[BrightData] Poll attempt ${i + 1} failed:`, error);
+      if (i === MAX_POLLS - 1) throw error;
+    }
+  }
+
+  throw new Error('Bright Data scrape timed out after maximum polling attempts.');
 }
 
 // ─────────────────────────────────────────────────────────

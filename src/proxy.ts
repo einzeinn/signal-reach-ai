@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * Proxy to protect routes and log requests.
- * (Replacing middleware.ts in this version of Next.js)
+ * Next.js Proxy - Intercepts requests before they reach route handlers
+ * Used for request logging and rate limiting on API routes
+ * 
+ * When using proxy.ts (vs middleware.ts), must export function named 'proxy'
  */
 export function proxy(request: NextRequest) {
   // Log all requests to the application
@@ -26,11 +28,17 @@ export function proxy(request: NextRequest) {
 }
 
 /**
- * This config determines which routes will be intercepted by the proxy
+ * Config determines which routes are intercepted by proxy
+ * Matches all API routes and pages EXCEPT static assets
+ * 
+ * CRITICAL: matcher must include '/api/:path*' to intercept API routes
+ * for rate limiting in src/app/api/signals/route.ts
  */
 export const config = {
   matcher: [
-    // Match all routes EXCEPT static assets, next internals, and favicon
+    // Match all API routes - critical for rate limiting to work
+    '/api/:path*',
+    // Match all page routes except static assets
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
