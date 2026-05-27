@@ -3,11 +3,13 @@
   "name": "signal-reach-ai",
   "compatibility_date": "2026-05-27",
   "compatibility_flags": ["nodejs_compat"],
+  "main": ".open-next/worker.js",
   "observability": {
     "enabled": true
   },
   "assets": {
-    "directory": ".open-next/assets"
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
   },
   "services": [
     {
