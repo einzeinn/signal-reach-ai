@@ -1,9 +1,8 @@
 // src/lib/data-providers/brightdata-serp.provider.ts
 // Live Google search scraping via Bright Data SERP API.
-// Demonstrates advanced multi-product integration (Web Scraper + SERP API).
+// Bersih dari Mock Provider untuk Cloudflare Edge Runtime.
 
-import { IDataProvider, JobSignal, RedditSignal, NewsSignal } from './types';
-import { MockDataProvider } from './mock.provider';
+import type { IDataProvider, JobSignal, RedditSignal, NewsSignal } from './types';
 import { retryWithBackoff } from '../utils';
 
 const BRIGHTDATA_REQUEST_URL = 'https://api.brightdata.com/request';
@@ -20,11 +19,8 @@ interface SerpApiResponse {
 }
 
 export class BrightDataSerpProvider implements IDataProvider {
-  private fallbackProvider: MockDataProvider;
-
-  constructor() {
-    this.fallbackProvider = new MockDataProvider();
-  }
+  
+  // ❌ Constructor dan Mock fallback telah dihapus total
 
   /**
    * Helper to check if Bright Data credentials are configured
@@ -41,16 +37,12 @@ export class BrightDataSerpProvider implements IDataProvider {
    */
   private async searchGoogle(query: string): Promise<SerpOrganicResult[]> {
     if (!this.isConfigured()) {
-      console.warn(
-        `[BrightData SERP] Credentials missing (BRIGHTDATA_API_TOKEN or BRIGHTDATA_SERP_ZONE). ` +
-        `Gracefully falling back to mock provider data for query: "${query}"`
-      );
-      throw new Error('MISSING_CREDENTIALS');
+      console.warn(`[BrightData SERP] Credentials missing. Returning empty array for: "${query}"`);
+      return []; // ✅ FIX: Langsung kembalikan array kosong jika belum disetting
     }
 
     const token = process.env.BRIGHTDATA_API_TOKEN;
     const zone = process.env.BRIGHTDATA_SERP_ZONE;
-    // 1. ADD &brd_json=1 to URL to force Google to return JSON
     const targetUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&brd_json=1`;
 
     try {
@@ -65,7 +57,7 @@ export class BrightDataSerpProvider implements IDataProvider {
             body: JSON.stringify({
               zone: zone,
               url: targetUrl,
-              format: 'raw' // 2. KEY REQUIREMENT: Bright Data requires this parameter to be 'raw'
+              format: 'raw'
             }),
           });
 
@@ -82,8 +74,8 @@ export class BrightDataSerpProvider implements IDataProvider {
       const data = (await response.json()) as SerpApiResponse;
       return data.organic ?? [];
     } catch (error) {
-      console.error('[BrightData SERP] Fetch failed, falling back:', error);
-      throw error;
+      console.error('[BrightData SERP] Fetch failed:', error);
+      return []; // ✅ FIX: Langsung kembalikan array kosong jika error (timeout)
     }
   }
 
@@ -91,7 +83,6 @@ export class BrightDataSerpProvider implements IDataProvider {
    * Extract job role name from Google search title
    */
   private parseJobRole(title: string, company: string): string {
-    // Clean up generic site/hiring words to get cleaner role title
     let role = title
       .replace(/ - LinkedIn/gi, '')
       .replace(/ \| LinkedIn/gi, '')
@@ -100,9 +91,7 @@ export class BrightDataSerpProvider implements IDataProvider {
       .replace(/job in.*/gi, '')
       .trim();
     
-    // Remove leading/trailing dashes, pipes, commas
     role = role.replace(/^[-\|\s,]+|[-\|\s,]+$/g, '').trim();
-
     return role || 'Senior Infrastructure Engineer';
   }
 
@@ -120,13 +109,10 @@ export class BrightDataSerpProvider implements IDataProvider {
 
   async scrapeJobSignals(company: string): Promise<JobSignal[]> {
     try {
-      // Find jobs for this company on LinkedIn
       const query = `site:linkedin.com/jobs/ "${company}" hiring`;
       const results = await this.searchGoogle(query);
 
-      if (results.length === 0) {
-        return this.fallbackProvider.scrapeJobSignals(company);
-      }
+      if (results.length === 0) return []; // ✅ FIX
 
       return results.slice(0, 3).map((r) => ({
         role: this.parseJobRole(r.title, company),
@@ -135,40 +121,36 @@ export class BrightDataSerpProvider implements IDataProvider {
         source: 'LinkedIn',
       }));
     } catch (error) {
-      return this.fallbackProvider.scrapeJobSignals(company);
+      console.error(`[BrightData SERP Provider] Jobs API failed:`, error);
+      return []; // ✅ FIX
     }
   }
 
   async scrapeRedditPainPoints(topic: string): Promise<RedditSignal[]> {
     try {
-      // Find Reddit discussions discussing problems with the company/topic
       const query = `site:reddit.com "${topic}" (pain OR bottleneck OR scale OR migrate OR nightmare OR issue)`;
       const results = await this.searchGoogle(query);
 
-      if (results.length === 0) {
-        return this.fallbackProvider.scrapeRedditPainPoints(topic);
-      }
+      if (results.length === 0) return []; // ✅ FIX
 
       return results.slice(0, 3).map((r) => ({
         subreddit: this.parseSubreddit(r.link),
         title: r.title.replace(/ : reddit/gi, '').replace(/ - reddit/gi, '').trim(),
         body: r.description,
-        upvotes: 20 + Math.floor(Math.random() * 200), // realistic mock count for SERP
+        upvotes: 20 + Math.floor(Math.random() * 200), 
       }));
     } catch (error) {
-      return this.fallbackProvider.scrapeRedditPainPoints(topic);
+      console.error(`[BrightData SERP Provider] Reddit API failed:`, error);
+      return []; // ✅ FIX
     }
   }
 
   async scrapeNewsSignals(company: string): Promise<NewsSignal[]> {
     try {
-      // Find news articles on growth/funding
       const query = `"${company}" (funding OR raised OR growth OR acquisition OR seed OR series)`;
       const results = await this.searchGoogle(query);
 
-      if (results.length === 0) {
-        return this.fallbackProvider.scrapeNewsSignals(company);
-      }
+      if (results.length === 0) return []; // ✅ FIX
 
       return results.slice(0, 3).map((r) => ({
         headline: r.title,
@@ -177,7 +159,8 @@ export class BrightDataSerpProvider implements IDataProvider {
         url: r.link,
       }));
     } catch (error) {
-      return this.fallbackProvider.scrapeNewsSignals(company);
+      console.error(`[BrightData SERP Provider] News API failed:`, error);
+      return []; // ✅ FIX
     }
   }
 }
