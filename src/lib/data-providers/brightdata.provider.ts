@@ -41,6 +41,7 @@ function validateDatasets() {
  * Triggers a Bright Data snapshot (scrape job) and polls until complete.
  * Includes exponential backoff retry logic for resilience.
  * Returns the resulting dataset rows.
+ * WARNING: Wrapped with aggressive timeout (15 seconds) to prevent Vercel timeouts.
  */
 async function triggerAndPoll<T>(
   datasetId: string,
@@ -49,70 +50,100 @@ async function triggerAndPoll<T>(
   const token = process.env.BRIGHTDATA_API_TOKEN;
   if (!token) throw new Error('BRIGHTDATA_API_TOKEN is not set.');
 
-  // Step 1: Trigger a new snapshot with retry logic
-  const triggerRes = await retryWithBackoff(
-    async () => {
-      const response = await fetch(
-        `${BRIGHTDATA_API_BASE}/trigger?dataset_id=${datasetId}&include_errors=true`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify([filters]),
-        }
-      );
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Bright Data trigger failed (${response.status}): ${errText}`);
-      }
-      return response;
-    },
-    3,
-    500
+  // Wrap entire operation in a 15-second timeout for Vercel compatibility
+  const timeoutPromise = new Promise<T[]>((_, reject) =>
+    setTimeout(() => reject(new Error('Bright Data API timeout after 15 seconds')), 15000)
   );
 
-  const { snapshot_id } = await triggerRes.json() as { snapshot_id: string };
+  const apiPromise = (async () => {
+    // Step 1: Trigger a new snapshot with retry logic
+    const triggerRes = await retryWithBackoff(
+      async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second fetch timeout
 
-  // Step 2: Poll for completion with retry logic (max 60 seconds, every 3 seconds)
-  const MAX_POLLS = 20;
-  const POLL_DELAY = 3000;
-
-  for (let i = 0; i < MAX_POLLS; i++) {
-    await new Promise((r) => setTimeout(r, POLL_DELAY));
-
-    try {
-      const statusRes = await retryWithBackoff(
-        async () => {
-          return fetch(
-            `${BRIGHTDATA_API_BASE}/snapshot/${snapshot_id}?format=json`,
-            { headers: { 'Authorization': `Bearer ${token}` } }
+        try {
+          const response = await fetch(
+            `${BRIGHTDATA_API_BASE}/trigger?dataset_id=${datasetId}&include_errors=true`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify([filters]),
+              signal: controller.signal,
+            }
           );
-        },
-        2,
-        500
-      );
+          clearTimeout(timeoutId);
 
-      if (statusRes.status === 200) {
-        // Data is ready
-        const rows = (await statusRes.json()) as T[];
-        return rows;
+          if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Bright Data trigger failed (${response.status}): ${errText}`);
+          }
+          return response;
+        } catch (e) {
+          clearTimeout(timeoutId);
+          throw e;
+        }
+      },
+      2,
+      500
+    );
+
+    const { snapshot_id } = await triggerRes.json() as { snapshot_id: string };
+
+    // Step 2: Poll for completion with aggressive timeout (max 10 seconds total polling)
+    const MAX_POLLS = 3; // Only 3 polls instead of 20
+    const POLL_DELAY = 2000; // 2 seconds between polls
+
+    for (let i = 0; i < MAX_POLLS; i++) {
+      await new Promise((r) => setTimeout(r, POLL_DELAY));
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second fetch timeout
+
+        const statusRes = await retryWithBackoff(
+          async () => {
+            try {
+              return await fetch(
+                `${BRIGHTDATA_API_BASE}/snapshot/${snapshot_id}?format=json`,
+                {
+                  headers: { 'Authorization': `Bearer ${token}` },
+                  signal: controller.signal,
+                }
+              );
+            } finally {
+              clearTimeout(timeoutId);
+            }
+          },
+          1,
+          300
+        );
+
+        if (statusRes.status === 200) {
+          // Data is ready
+          const rows = (await statusRes.json()) as T[];
+          return rows;
+        }
+
+        if (statusRes.status === 202) {
+          // Still processing — continue polling
+          continue;
+        }
+
+        throw new Error(`Unexpected Bright Data status: ${statusRes.status}`);
+      } catch (error) {
+        console.warn(`Poll attempt ${i + 1} failed:`, error);
+        if (i === MAX_POLLS - 1) throw error;
       }
-
-      if (statusRes.status === 202) {
-        // Still processing — continue polling
-        continue;
-      }
-
-      throw new Error(`Unexpected Bright Data status: ${statusRes.status}`);
-    } catch (error) {
-      console.warn(`Poll attempt ${i + 1} failed:`, error);
-      if (i === MAX_POLLS - 1) throw error;
     }
-  }
 
-  throw new Error('Bright Data scrape timed out after 60 seconds.');
+    throw new Error('Bright Data scrape timed out after polling.');
+  })();
+
+  return Promise.race([apiPromise, timeoutPromise]);
 }
 
 // ─────────────────────────────────────────────────────────
@@ -177,7 +208,7 @@ export class BrightDataProvider implements IDataProvider {
       async () => {
         const rows = await triggerAndPoll<BrightDataJob>(
           DATASET_IDS.linkedinJobs,
-          // DIUBAH: Menggunakan format URL untuk Linkedin Jobs
+          // CHANGED: Using URL format for LinkedIn Jobs
           { url: `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(company)}` }
         );
         return rows.map(r => ({
@@ -196,7 +227,7 @@ export class BrightDataProvider implements IDataProvider {
       async () => {
         const rows = await triggerAndPoll<BrightDataReddit>(
           DATASET_IDS.reddit,
-          // DIUBAH: Menggunakan format URL untuk Reddit
+          // CHANGED: Using URL format for Reddit
           { url: `https://www.reddit.com/search/?q=${encodeURIComponent(topic)}` }
         );
         return rows.map(r => ({
@@ -215,7 +246,7 @@ export class BrightDataProvider implements IDataProvider {
       async () => {
         const rows = await triggerAndPoll<BrightDataNews>(
           DATASET_IDS.googleNews,
-          // DIUBAH: Menggunakan format URL untuk Google News
+          // CHANGED: Using URL format for Google News
           { url: `https://news.google.com/search?q=${encodeURIComponent(company + ' funding OR expansion OR growth')}` }
         );
         return rows.map(r => ({
