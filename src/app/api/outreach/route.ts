@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '../../../lib/supabase/client';
 import { getDataProvider } from '../../../lib/data-providers';
+import { GoogleGenAI } from '@google/genai'; // KITA PAKE SDK RESMI SAJA
 
 export const dynamic = 'force-dynamic';
-// maxDuration tidak berlaku di Cloudflare, tapi aman dibiarkan untuk Next.js standar
-export const maxDuration = 60; 
 
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 10;
@@ -56,14 +55,14 @@ export async function POST(request: NextRequest) {
     console.log(`[Outreach API] Fetching live signals for ${companyName}...`);
     const provider = getDataProvider();
     
-    // Fetch signals (Memakan waktu rata-rata 5-10 detik)
+    // Fetch signals
     const [jobs, reddit, news] = await Promise.all([
       provider.scrapeJobSignals(companyName),
       provider.scrapeRedditPainPoints(companyName),
       provider.scrapeNewsSignals(companyName),
     ]);
 
-    console.log(`[Outreach API] Generating personalized email via Gemini...`);
+    console.log(`[Outreach API] Generating personalized email via Gemini SDK...`);
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
@@ -88,63 +87,49 @@ export async function POST(request: NextRequest) {
       2. Subject line must be catchy, short, and relevant to the signals.
       3. Start with "Hi [First Name],", followed by a double line break.
       4. Paragraph 1: Mention a specific signal from the data above. 
-         IMPORTANT: Analyze the Reddit discussions to figure out the actual pain point. DO NOT copy-paste raw search query operators like "OR", "AND", "pain", "bottleneck" literally. Phrase it naturally.
+         IMPORTANT: Analyze the Reddit discussions to figure out the actual pain point. Phrase it naturally.
       5. Paragraph 2: Soft pitch our value proposition at SignalReach AI.
       6. Call to Action: Ask for a 10-minute introductory call next week.
       7. Sign off as "Best,\n\nAlex Mercer\nEnterprise Account Executive\nSignalReach AI".
       
-      Keep the email VERY SHORT and concise. Maximum 3 to 4 sentences only. Do not write long paragraphs.
+      Keep the email VERY SHORT. Maximum 4 sentences only.
     `;
 
-    // Menggunakan model tercepat (flash-lite)
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
-
-    // 🕒 TIMEOUT 15 DETIK: 
-    // Kita batasi Gemini maksimal 15 detik. Jika lebih, kita batalkan sendiri (Abort)
-    // sebelum Cloudflare membunuh proses ini di detik ke-30 secara paksa.
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-
     try {
-      const geminiResponse = await fetch(geminiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            maxOutputTokens: 250, // Memaksa respon pendek agar cepat
-            responseSchema: {
-              type: "OBJECT",
-              properties: {
-                subject: { type: "STRING" },
-                body: { type: "STRING" }
-              }
-            }
+      // MENGGUNAKAN SDK RESMI @google/genai
+      const ai = new GoogleGenAI({ apiKey: apiKey });
+      
+      // Kita pakai Promise.race untuk bikin timeout manual 12 detik yang lebih stabil
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('GEMINI_TIMEOUT')), 12000)
+      );
+
+      const geminiPromise = ai.models.generateContent({
+        model: 'gemini-2.5-flash', // Pakai flash biasa, seringkali lebih stabil dari lite
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+             type: "OBJECT",
+             properties: {
+               subject: { type: "STRING" },
+               body: { type: "STRING" }
+             }
           }
-        }),
-        signal: controller.signal,
+        }
       });
 
-      clearTimeout(timeoutId);
+      // Balapan: Mana yang duluan, Gemini selesai atau 12 detik habis?
+      const response = await Promise.race([geminiPromise, timeoutPromise]) as any;
+      
+      const text = response.text;
+      if (!text) throw new Error('Empty response from Gemini SDK');
 
-      if (!geminiResponse.ok) {
-        const errData = await geminiResponse.text();
-        throw new Error(`Gemini API returned ${geminiResponse.status}: ${errData.substring(0, 200)}`);
-      }
+      // Bersihkan markdown jika ada
+      const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const generatedData = JSON.parse(cleanText);
 
-      const aiData = await geminiResponse.json();
-
-      if (!aiData.candidates?.[0]?.content?.parts?.[0]?.text) {
-        throw new Error('Invalid response structure from Gemini API');
-      }
-
-      let responseText = aiData.candidates[0].content.parts[0].text;
-      responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-      const generatedData = JSON.parse(responseText);
-
-      // Simpan ke Supabase
+      // Simpan ke Supabase (opsional, biarkan fail kalau DB bermasalah)
       try {
         const supabase = await createServerClient();
         await supabase.from('outreach_drafts').insert({
@@ -161,22 +146,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'Draft generated successfully',
-        data: generatedData
+        data: generatedData // Data asli dari Gemini
       });
 
-    } catch (geminiError) {
-      clearTimeout(timeoutId);
-      console.warn('[Outreach API] Gemini AI timeout or failed. Gracefully falling back to template:', geminiError instanceof Error ? geminiError.message : String(geminiError));
+    } catch (geminiError: any) {
+      console.warn('[Outreach API] Gemini Failed or Timeout:', geminiError.message);
 
-      // 🛡️ FALLBACK: Jika Gemini gagal atau terlalu lama, berikan email template 
-      // agar tidak terjadi Error 500 di UI.
+      // 🛡️ FALLBACK YANG DIJAMIN TIDAK BLANK DI UI
+      const fallbackData = {
+        subject: `Quick question regarding ${companyName}'s current initiatives`,
+        body: `Hi [First Name],\n\nI noticed some interesting technical and hiring discussions regarding ${companyName} recently.\n\nSignalReach AI specializes in streamlining these exact operational workflows for enterprise teams.\n\nDo you have 10 minutes next week to see if we might be a fit to help?\n\nBest,\n\nAlex Mercer\nEnterprise Account Executive\nSignalReach AI`
+      };
+
       return NextResponse.json({
         success: true,
-        message: 'Using template draft due to AI generation delay',
-        data: {
-          subject: `Exciting signals from ${companyName} - Let's connect`,
-          body: `Hi [First Name],\n\nWe noticed some exciting hiring and operational activities at ${companyName} recently, and I thought this might be a good time to connect.\n\nSignalReach AI has been helping teams streamline similar technical workflows, and I'd love to share some insights.\n\nWould you be open to a brief 10-minute chat next week to see if there's a fit?\n\nBest,\n\nAlex Mercer\nEnterprise Account Executive\nSignalReach AI`
-        }
+        message: 'Draft generated using template',
+        data: fallbackData // Format sama persis (subject & body)
       });
     }
 
