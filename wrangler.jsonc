@@ -17,6 +17,7 @@
     "BRIGHTDATA_DATASET_REDDIT": "gd_lvz8ah06191smkebj4",
     "BRIGHTDATA_DATASET_NEWS": "gd_m8ebnr0q2qlklc02fz",
     "NEXT_PUBLIC_SUPABASE_URL": "https://dctzntluguokutmdrnko.supabase.co",
+    "GEMINI_API_KEY": "..."
     "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRjdHpudGx1Z3Vva3V0bWRybmtvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMjEzNzgsImV4cCI6MjA5NDc5NzM3OH0.r4gTW9FGdN7gaWsM2doZVy9WS8ilLZURmbvstgE8kwU"
   },
   "assets": {
