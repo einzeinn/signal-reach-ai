@@ -14,7 +14,6 @@ export default function OutreachContainer({ leads }: { leads: EnrichedLead[] }) 
   const [newTargetName, setNewTargetName] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   
-  // State to track loading per company
   const [loadingCompanies, setLoadingCompanies] = useState<Set<string>>(new Set());
 
   const filteredLeads = localLeads.filter(lead => 
@@ -31,10 +30,10 @@ export default function OutreachContainer({ leads }: { leads: EnrichedLead[] }) 
     e.preventDefault();
     if (!newTargetName.trim()) return;
 
-    const targetCompany = newTargetName;
+    const targetCompany = newTargetName.trim();
     const tempId = `temp-id-${Date.now()}`;
 
-    // 1. Optimistic UI Update (Show card immediately)
+    // Optimistic UI: show card immediately with loading state
     const newLead: EnrichedLead = {
       company_id: tempId,
       company_name: targetCompany,
@@ -48,55 +47,61 @@ export default function OutreachContainer({ leads }: { leads: EnrichedLead[] }) 
     handleSelectCompany(targetCompany);
     setIsModalOpen(false);
     setNewTargetName('');
-    
-    // Set status loading
     setLoadingCompanies(prev => new Set(prev).add(tempId));
-    setToastMessage(`Scraping live signals for "${targetCompany}"...`);
-    setTimeout(() => setToastMessage(null), 3000);
 
-    // 2. Call API to Bright Data (Real-time Scraping)
+    showToast(`Scraping live signals for "${targetCompany}"...`);
+
     try {
       const res = await fetch(`/api/signals?company=${encodeURIComponent(targetCompany)}`);
-      if (!res.ok) throw new Error('API Request Failed');
+      
+      if (!res.ok) {
+        throw new Error(`API responded with status ${res.status}`);
+      }
       
       const data = await res.json();
       
-      // Get top signals from Bright Data
-      const job = data.signals?.jobs?.[0];
-      const reddit = data.signals?.reddit?.[0];
+      const job = data.signals?.jobs?.[0] ?? null;
+      const reddit = data.signals?.reddit?.[0] ?? null;
 
-      // 3. Update Card with real data
+      // Update card with real signal data (or null if nothing found — not an error)
       setLocalLeads(prev => prev.map(lead => 
         lead.company_id === tempId 
           ? {
               ...lead,
-              jobRole: job?.role || 'No specific roles found',
-              jobSource: job?.source || 'Web',
-              redditSub: reddit?.subreddit || null,
+              jobRole: job?.role ?? null,
+              jobSource: job?.source ?? null,
+              redditSub: reddit?.subreddit ?? null,
             }
           : lead
       ));
 
-      setToastMessage(`✅ Signals found for ${targetCompany}!`);
-      setTimeout(() => setToastMessage(null), 3000);
+      const hasSignals = job || reddit;
+      showToast(hasSignals ? `✅ Signals found for ${targetCompany}!` : `No signals found for ${targetCompany} yet.`);
 
     } catch (error) {
-      console.error(error);
+      console.error('[handleAddTarget] Signal fetch failed:', error);
+
+      // On error: reset signal fields to null (not an error string)
+      // The card will show "Waiting for signals..." which is accurate
       setLocalLeads(prev => prev.map(lead => 
         lead.company_id === tempId 
-          ? { ...lead, jobRole: 'Failed to fetch live signals' }
+          ? { ...lead, jobRole: null, jobSource: null, redditSub: null }
           : lead
       ));
-      setToastMessage(`❌ Failed to fetch ${targetCompany}`);
-      setTimeout(() => setToastMessage(null), 3000);
+
+      showToast(`⚠️ Could not fetch signals for "${targetCompany}". Try again later.`);
     } finally {
-      // Remove loading status
       setLoadingCompanies(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(tempId);
-        return newSet;
+        const next = new Set(prev);
+        next.delete(tempId);
+        return next;
       });
     }
+  };
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
   const handleSelectCompany = (companyName: string) => {
@@ -231,7 +236,9 @@ export default function OutreachContainer({ leads }: { leads: EnrichedLead[] }) 
                         Hiring: <span className="font-bold text-neo-black">{lead.jobRole}</span>
                       </p>
                     ) : (
-                      <p className="font-medium text-gray-500 mt-1 italic text-[10px] md:text-xs">Waiting for signals...</p>
+                      <p className="font-medium text-gray-500 mt-1 italic text-[10px] md:text-xs">
+                        Waiting for signals...
+                      </p>
                     )}
                     
                     {!isLoading && (
