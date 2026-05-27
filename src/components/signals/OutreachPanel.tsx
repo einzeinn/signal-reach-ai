@@ -163,8 +163,8 @@ export default function OutreachPanel({ company }: OutreachPanelProps) {
 
       {emailData && !isLoading && (
         <div className="relative z-10 border-t-2 border-dashed border-gray-200 bg-white px-4 py-2 flex gap-2 flex-wrap shrink-0">
-          <span className="text-[9px] font-black bg-neo-yellow border border-black px-1.5 py-0.5 shadow-[1px_1px_0_#000]">SINYAL KERJA</span>
-          <span className="text-[9px] font-black bg-neo-teal border border-black px-1.5 py-0.5 shadow-[1px_1px_0_#000]">KELUHAN REDDIT</span>
+          <span className="text-[9px] font-black bg-neo-yellow border border-black px-1.5 py-0.5 shadow-[1px_1px_0_#000]">JOB SIGNALS</span>
+          <span className="text-[9px] font-black bg-neo-teal border border-black px-1.5 py-0.5 shadow-[1px_1px_0_#000]">REDDIT PAIN POINTS</span>
         </div>
       )}
 

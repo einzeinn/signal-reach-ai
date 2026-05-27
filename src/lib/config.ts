@@ -50,8 +50,8 @@ export function logEnvironmentStatus(): void {
 
   if (!validation.isValid) {
     console.error('Missing required environment variables:', validation.missing.join(', '));
-    // ← Hapus throw error, cukup log saja
-    // Cloudflare Workers tidak support throw di module level
+    // ← Remove throw error, just log it
+    // Cloudflare Workers does not support throwing at module level
   }
 
   if (validation.warnings.length > 0) {
@@ -61,5 +61,5 @@ export function logEnvironmentStatus(): void {
   console.log('Environment check complete. Missing:', validation.missing.join(', ') || 'none');
 }
 
-// ← HAPUS block ini sepenuhnya, ini yang crash Cloudflare Workers
+// ← REMOVE this block entirely, this was crashing Cloudflare Workers
 // if (typeof window === 'undefined') { ... }

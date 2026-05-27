@@ -10,7 +10,7 @@
     "enabled": true
   },
   "vars": {
-    "DATA_PROVIDER": "brightdata",
+    "DATA_PROVIDER": "brightdata-serp",
     "BRIGHTDATA_API_TOKEN": "c1f8425e-83b7-413f-95d7-51ef781eb0ae",
     "BRIGHTDATA_SERP_ZONE":"serp_api1",
     "BRIGHTDATA_DATASET_LINKEDIN": "gd_l1viktl72bvl7bjuj0",

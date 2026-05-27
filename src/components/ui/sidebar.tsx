@@ -17,7 +17,7 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Floating Hamburger Button (Hanya terlihat di Mobile) */}
+      {/* Floating Hamburger Button (Only visible on Mobile) */}
       <button
         onClick={() => setIsOpen(true)}
         className="md:hidden fixed bottom-6 left-6 z-40 bg-neo-yellow border-2 border-neo-black p-3 shadow-[4px_4px_0_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all"
@@ -25,7 +25,7 @@ export default function Sidebar() {
         <Menu className="w-6 h-6" />
       </button>
 
-      {/* Overlay Gelap (Hanya muncul saat menu dibuka di Mobile) */}
+      {/* Dark Overlay (Only appears when menu is opened on Mobile) */}
       {isOpen && (
         <div
           className="md:hidden fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"

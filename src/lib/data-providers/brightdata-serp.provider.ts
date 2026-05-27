@@ -1,6 +1,5 @@
 // src/lib/data-providers/brightdata-serp.provider.ts
-// Live Google search scraping via Bright Data SERP API.
-// Bersih dari Mock Provider untuk Cloudflare Edge Runtime.
+// Cleaned from Mock Provider for Cloudflare Edge Runtime.
 
 import type { IDataProvider, JobSignal, RedditSignal, NewsSignal } from './types';
 import { retryWithBackoff } from '../utils';
@@ -20,7 +19,7 @@ interface SerpApiResponse {
 
 export class BrightDataSerpProvider implements IDataProvider {
   
-  // ❌ Constructor dan Mock fallback telah dihapus total
+  // ❌ Constructor and Mock fallback have been completely removed
 
   /**
    * Helper to check if Bright Data credentials are configured
@@ -38,7 +37,7 @@ export class BrightDataSerpProvider implements IDataProvider {
   private async searchGoogle(query: string): Promise<SerpOrganicResult[]> {
     if (!this.isConfigured()) {
       console.warn(`[BrightData SERP] Credentials missing. Returning empty array for: "${query}"`);
-      return []; // ✅ FIX: Langsung kembalikan array kosong jika belum disetting
+      return []; // ✅ FIX: Directly return empty array if not configured
     }
 
     const token = process.env.BRIGHTDATA_API_TOKEN;
@@ -75,7 +74,7 @@ export class BrightDataSerpProvider implements IDataProvider {
       return data.organic ?? [];
     } catch (error) {
       console.error('[BrightData SERP] Fetch failed:', error);
-      return []; // ✅ FIX: Langsung kembalikan array kosong jika error (timeout)
+      return []; // ✅ FIX: Directly return empty array on error (timeout)
     }
   }
 

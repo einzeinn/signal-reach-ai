@@ -1,6 +1,6 @@
 import type { IDataProvider, JobSignal, RedditSignal, NewsSignal } from './types';
 
-// ❌ PENTING: IMPORT MOCK PROVIDER DIHAPUS TOTAL DARI FILE INI
+// ❌ IMPORTANT: MOCK PROVIDER IMPORT COMPLETELY REMOVED FROM THIS FILE
 
 export class BrightDataProvider implements IDataProvider {
   
@@ -12,7 +12,7 @@ export class BrightDataProvider implements IDataProvider {
 
       if (!datasetId || !token) throw new Error('Bright Data credentials missing');
 
-      // --- LOGIKA FETCH BRIGHT DATA ---
+      // --- BRIGHT DATA FETCH LOGIC ---
       const triggerUrl = `https://api.brightdata.com/datasets/v3/trigger?dataset_id=${datasetId}&include_errors=true`;
       const response = await fetch(triggerUrl, {
         method: 'POST',
@@ -32,7 +32,7 @@ export class BrightDataProvider implements IDataProvider {
       return Array.isArray(data) ? data : [];
 
     } catch (error) {
-      // ✅ FIX CLOUDFLARE: Kembalikan array kosong [], BUKAN memanggil mock provider!
+      // ✅ CLOUDFLARE FIX: Return empty array [], DO NOT call mock provider!
       console.error(`[BrightData Provider] Jobs API failed, returning empty array:`, error);
       return []; 
     }
@@ -46,7 +46,7 @@ export class BrightDataProvider implements IDataProvider {
 
       if (!datasetId || !token) throw new Error('Bright Data credentials missing');
 
-      // --- LOGIKA FETCH BRIGHT DATA ---
+      // --- BRIGHT DATA FETCH LOGIC ---
       const triggerUrl = `https://api.brightdata.com/datasets/v3/trigger?dataset_id=${datasetId}&include_errors=true`;
       const response = await fetch(triggerUrl, {
         method: 'POST',
@@ -66,7 +66,7 @@ export class BrightDataProvider implements IDataProvider {
       return Array.isArray(data) ? data : [];
 
     } catch (error) {
-      // ✅ FIX CLOUDFLARE
+      // ✅ CLOUDFLARE FIX
       console.error(`[BrightData Provider] Reddit API failed, returning empty array:`, error);
       return []; 
     }
@@ -80,7 +80,7 @@ export class BrightDataProvider implements IDataProvider {
 
       if (!datasetId || !token) throw new Error('Bright Data credentials missing');
 
-      // --- LOGIKA FETCH BRIGHT DATA ---
+      // --- BRIGHT DATA FETCH LOGIC ---
       const triggerUrl = `https://api.brightdata.com/datasets/v3/trigger?dataset_id=${datasetId}&include_errors=true`;
       const response = await fetch(triggerUrl, {
         method: 'POST',
@@ -100,7 +100,7 @@ export class BrightDataProvider implements IDataProvider {
       return Array.isArray(data) ? data : [];
 
     } catch (error) {
-      // ✅ FIX CLOUDFLARE
+      // ✅ CLOUDFLARE FIX
       console.error(`[BrightData Provider] News API failed, returning empty array:`, error);
       return []; 
     }
