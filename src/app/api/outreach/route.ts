@@ -3,7 +3,8 @@ import { createServerClient } from '../../../lib/supabase/client';
 import { getDataProvider } from '../../../lib/data-providers';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+// maxDuration tidak berlaku di Cloudflare, tapi aman dibiarkan untuk Next.js standar
+export const maxDuration = 60; 
 
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 10;
@@ -32,15 +33,6 @@ function getClientIp(request: NextRequest): string {
 }
 
 export async function POST(request: NextRequest) {
-  // DEBUG: cek semua env vars
-  console.log('[DEBUG ENV]', {
-    GEMINI: !!process.env.GEMINI_API_KEY,
-    GEMINI_VALUE: process.env.GEMINI_API_KEY?.slice(0, 10),
-    DATA_PROVIDER: process.env.DATA_PROVIDER,
-    SUPABASE: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-    NODE_ENV: process.env.NODE_ENV,
-  });
-
   const clientIp = getClientIp(request);
 
   if (!checkRateLimit(clientIp)) {
@@ -63,6 +55,8 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Outreach API] Fetching live signals for ${companyName}...`);
     const provider = getDataProvider();
+    
+    // Fetch signals (Memakan waktu rata-rata 5-10 detik)
     const [jobs, reddit, news] = await Promise.all([
       provider.scrapeJobSignals(companyName),
       provider.scrapeRedditPainPoints(companyName),
@@ -98,12 +92,18 @@ export async function POST(request: NextRequest) {
       5. Paragraph 2: Soft pitch our value proposition at SignalReach AI.
       6. Call to Action: Ask for a 10-minute introductory call next week.
       7. Sign off as "Best,\n\nAlex Mercer\nEnterprise Account Executive\nSignalReach AI".
+      
+      Keep the email VERY SHORT and concise. Maximum 3 to 4 sentences only. Do not write long paragraphs.
     `;
 
+    // Menggunakan model tercepat (flash-lite)
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
 
+    // 🕒 TIMEOUT 15 DETIK: 
+    // Kita batasi Gemini maksimal 15 detik. Jika lebih, kita batalkan sendiri (Abort)
+    // sebelum Cloudflare membunuh proses ini di detik ke-30 secara paksa.
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 35000);
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
       const geminiResponse = await fetch(geminiUrl, {
@@ -113,6 +113,7 @@ export async function POST(request: NextRequest) {
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: "application/json",
+            maxOutputTokens: 250, // Memaksa respon pendek agar cepat
             responseSchema: {
               type: "OBJECT",
               properties: {
@@ -143,6 +144,7 @@ export async function POST(request: NextRequest) {
 
       const generatedData = JSON.parse(responseText);
 
+      // Simpan ke Supabase
       try {
         const supabase = await createServerClient();
         await supabase.from('outreach_drafts').insert({
@@ -164,14 +166,16 @@ export async function POST(request: NextRequest) {
 
     } catch (geminiError) {
       clearTimeout(timeoutId);
-      console.error('[Outreach API] Gemini Error:', geminiError instanceof Error ? geminiError.message : geminiError);
+      console.warn('[Outreach API] Gemini AI timeout or failed. Gracefully falling back to template:', geminiError instanceof Error ? geminiError.message : String(geminiError));
 
+      // 🛡️ FALLBACK: Jika Gemini gagal atau terlalu lama, berikan email template 
+      // agar tidak terjadi Error 500 di UI.
       return NextResponse.json({
         success: true,
         message: 'Using template draft due to AI generation delay',
         data: {
           subject: `Exciting signals from ${companyName} - Let's connect`,
-          body: `Hi there,\n\nWe noticed some exciting activity at ${companyName} and thought this might be a good time to connect.\n\nWould you be available for a quick 10-minute call next week?\n\nBest,\n\nAlex Mercer\nEnterprise Account Executive\nSignalReach AI`
+          body: `Hi [First Name],\n\nWe noticed some exciting hiring and operational activities at ${companyName} recently, and I thought this might be a good time to connect.\n\nSignalReach AI has been helping teams streamline similar technical workflows, and I'd love to share some insights.\n\nWould you be open to a brief 10-minute chat next week to see if there's a fit?\n\nBest,\n\nAlex Mercer\nEnterprise Account Executive\nSignalReach AI`
         }
       });
     }
