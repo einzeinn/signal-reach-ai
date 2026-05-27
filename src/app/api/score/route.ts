@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     
     // Add timeout to Gemini API call
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 35000); // 35 second timeout
 
     try {
       const geminiResponse = await fetch(geminiUrl, {
