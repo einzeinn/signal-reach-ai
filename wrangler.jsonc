@@ -1,11 +1,11 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "main": ".open-next/worker.js",
   "name": "signal-reach-ai",
   "compatibility_date": "2026-05-27",
-  "compatibility_flags": [
-    "nodejs_compat"
-  ],
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
@@ -18,8 +18,5 @@
   ],
   "images": {
     "binding": "IMAGES"
-  },
-  "observability": {
-    "enabled": true
   }
 }
