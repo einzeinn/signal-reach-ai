@@ -1,157 +1,107 @@
-# SignalReach AI 🎯
+🚀 SignalReach AI
 
-**Intent-Based GTM Intelligence Engine** — Find the signal. Close the deal.
+Automated B2B Outreach powered by Real-Time Signals and Generative AI.
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
-[![Gemini](https://img.shields.io/badge/Gemini-2.5_Flash-orange?style=flat-square&logo=google)](https://deepmind.google/technologies/gemini)
-[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ecf8e?style=flat-square&logo=supabase)](https://supabase.com)
+SignalReach AI is a modern B2B sales intelligence platform that bridges the gap between deep, personalized prospect research and scalable automated outreach. It instantly scrapes live web signals and synthesizes them into highly personalized cold email drafts using advanced AI.
 
----
+✨ Key Features
 
-## The Problem
+Live Data Scraping: Dynamically fetches real-time signals including recent job postings (LinkedIn), technical pain points and discussions (Reddit), and latest company news.
 
-Modern B2B cold outreach is broken. Sales and GTM teams are stuck choosing between two bad options:
+AI-Powered Synthesis: Utilizes Google's Gemini 2.5 Flash to analyze unstructured data and generate hyper-personalized, context-aware cold emails.
 
-| Approach | Result |
-|---|---|
-| 🔴 High Volume, Low Quality | Generic templates → near-zero reply rates |
-| 🔴 High Quality, Low Volume | 45+ min of manual research per prospect |
+Edge-Optimized Performance: Fully deployed on the Edge (Cloudflare Pages), ensuring ultra-low latency.
 
-There's no middle ground — until now.
+Fault-Tolerant AI Generation: Implements a custom asynchronous Promise.race handler to bypass serverless execution limits gracefully, guaranteeing a response under 12 seconds.
 
----
+Draft Management: Automatically saves generated outreach drafts to a Supabase PostgreSQL database for sales teams to review and send.
 
-## What SignalReach AI Does
+🛠️ Tech Stack
 
-SignalReach AI automates the entire research-to-draft workflow in **under 10 seconds**. Instead of guessing what a prospect needs, it listens to what they're actively struggling with on the open web — then writes the email for you.
+Framework: Next.js (App Router, Edge Runtime)
 
-```
-Company Name → Live Signal Scraping → AI Intent Analysis → Hyper-Personalized Cold Email
-```
+Deployment: Cloudflare Pages & Workers
 
----
+AI Model: Google Gemini 2.5 Flash via official @google/genai SDK
 
-## Architecture
+Data Provider: Bright Data (SERP API & Web Unlocker)
 
-### 1. Real-Time Signal Ingestion — Bright Data SERP API
-Fires parallel scraping requests against live Google search results to surface:
-- LinkedIn job openings (hiring intent signals)
-- Reddit threads with technical complaints (pain point signals)
-- Company news (strategic context signals)
+Database: Supabase (PostgreSQL)
 
-No stale databases. No guessing. Live data, every time.
+Styling: Tailwind CSS
 
-### 2. Generative Intent Analysis — Google Gemini 2.5 Flash
-Raw scraped data gets fed into Gemini with strict prompt engineering and enforced JSON response schemas. The model acts as an elite Account Executive — translating raw signals into actionable pitch angles.
+🏗️ Architecture & How It Works
 
-> e.g., A Reddit post complaining about "Wayland compatibility issues" → mapped to an "IT infrastructure modernization" value pitch.
+User Input: An Account Executive inputs a target company name.
 
-### 3. Graceful Degradation — Strategy Pattern Fallback
-The data provider layer uses the **OOP Strategy Pattern** (`IDataProvider` interface). If Bright Data hits rate limits or network failures, the system silently falls back to `MockDataProvider` — the UI never breaks, even during a live demo.
+Parallel Scraping: The API concurrently triggers Bright Data to scrape Google/LinkedIn for hiring roles, Reddit for pain points, and News for recent events.
 
-### 4. Async Campaign Management — Supabase
-Generated drafts are persisted to a PostgreSQL database via Supabase. The UI updates optimistically, so users move straight from signal monitoring to dispatching without waiting for roundtrips.
+Prompt Engineering: The raw data is structured into a highly engineered prompt outlining the prospect's current initiatives.
 
----
+AI Generation: The @google/genai SDK processes the prompt. A custom race-condition timeout ensures the AI responds within serverless boundaries (under 15s).
 
-## System Flow
+Storage & UI: The generated email is saved to Supabase and immediately rendered on the frontend dashboard.
 
-```
-[User Input: Company Name]
-         │
-         ▼
-[/api/signals] ──── Bright Data SERP ──── Parallel scrape: Jobs + Reddit + News
-         │
-         ▼
-[Data Normalization] ──── Raw DOM/JSON → Uniform signal objects
-         │
-         ▼
-[/api/outreach] ──── Gemini 2.5 Flash ──── Signal aggregation + strict prompt injection
-         │
-         ▼
-[Output Validation] ──── Enforced JSON schema (subject + body guaranteed)
-         │
-         ▼
-[Supabase Persistence] ──── Draft saved → Rendered in AI Workspace
-```
+🚦 Getting Started (Local Development)
 
----
+Prerequisites
 
-## Tech Stack
+Node.js 18+
 
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router + Turbopack) |
-| Language | TypeScript |
-| Styling | Tailwind CSS v4 — custom Neo-Brutalism design system |
-| Data | Bright Data SERP API |
-| AI Engine | Google Gemini 2.5 Flash |
-| Database & Auth | Supabase (PostgreSQL) |
+npm, yarn, or pnpm
 
----
+API Keys for Bright Data, Google Gemini, and Supabase
 
-## Local Development
+1. Clone the repository
 
-### 1. Clone the repo
-
-```bash
-git clone https://github.com/yourusername/signal-reach-ai.git
+git clone [https://github.com/yourusername/signal-reach-ai.git](https://github.com/yourusername/signal-reach-ai.git)
 cd signal-reach-ai
-```
 
-### 2. Install dependencies
 
-```bash
+2. Install dependencies
+
 npm install
-```
 
-### 3. Set up environment variables
 
-Create a `.env.local` file in the project root:
+3. Environment Variables
 
-```env
+Create a .env.local file in the root directory and add the following keys:
+
 # AI Provider
-GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_API_KEY=your_gemini_api_key
 
-# Database
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+# Data Provider (Bright Data)
+DATA_PROVIDER=brightdata
+BRIGHTDATA_API_TOKEN=your_brightdata_token
+BRIGHTDATA_DATASET_LINKEDIN=your_dataset_id
+BRIGHTDATA_DATASET_REDDIT=your_dataset_id
+BRIGHTDATA_DATASET_NEWS=your_dataset_id
+BRIGHTDATA_SERP_ZONE=your_serp_zone_name
+
+# Database (Supabase)
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-# Data Provider (values: 'mock' | 'brightdata' | 'brightdata-serp')
-DATA_PROVIDER=brightdata-serp
 
-# Bright Data
-BRIGHTDATA_API_TOKEN=your_brightdata_token
-BRIGHTDATA_SERP_ZONE=your_brightdata_serp_zone_name
-```
+4. Run the development server
 
-> 💡 **Tip:** Set `DATA_PROVIDER=mock` to run the app without any external API keys. The fallback MockDataProvider will handle everything.
-
-### 4. Start the dev server
-
-```bash
 npm run dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) and you're good to go.
 
----
+Open http://localhost:3000 with your browser to see the result.
 
-## Key Design Decisions
+☁️ Deployment (Cloudflare Pages)
 
-**Why Bright Data over free scraping?**
-Anti-bot measures on LinkedIn and Google block naive scrapers instantly. Bright Data handles rotating proxies, CAPTCHA bypassing, and rendering — so the pipeline works reliably in production, not just locally.
+This project is configured to deploy seamlessly to Cloudflare Pages.
 
-**Why enforce JSON schema on Gemini output?**
-Free-form LLM output is unpredictable under load. Enforcing a strict `responseSchema` at the API level guarantees the subject and body fields always exist and are correctly typed — no parsing hacks needed.
+Ensure your GitHub repository is connected to Cloudflare Pages.
 
-**Why the Strategy Pattern for data providers?**
-Swapping between live and mock data needs to be seamless — especially during demos. The `IDataProvider` interface makes the provider layer pluggable without touching any business logic.
+Set all Environment Variables in the Cloudflare Dashboard (Settings > Variables and Secrets).
 
----
+Security Note: Do not hardcode API keys into wrangler.jsonc if your repository is public.
 
-## Built for Hackathon 2026
+Push to the main branch to trigger an automatic build and deployment.
 
-Transforming unstructured web noise into actionable sales signals.
+📜 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
