@@ -95,57 +95,93 @@ export async function POST(request: NextRequest) {
     `;
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-    const geminiResponse = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "OBJECT",
-            properties: {
-              subject: { type: "STRING" },
-              body: { type: "STRING" }
+    
+    // Add timeout to Gemini API call
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+    try {
+      const geminiResponse = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                subject: { type: "STRING" },
+                body: { type: "STRING" }
+              }
             }
           }
-        }
-      })
-    });
-
-    if (!geminiResponse.ok) {
-      const errData = await geminiResponse.text();
-      console.error('Gemini Error:', errData);
-      throw new Error('Failed to generate email with Gemini AI');
-    }
-
-    const aiData = await geminiResponse.json();
-    let responseText = aiData.candidates[0].content.parts[0].text;
-    
-    // BERSIHKAN MARKDOWN BACKTICKS DARI GEMINI (MENCEGAH ERROR 500)
-    responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    
-    const generatedData = JSON.parse(responseText);
-
-    console.log(`[Outreach API] Saving draft to Supabase...`);
-    try {
-      const supabase = await createServerClient();
-      await supabase.from('outreach_drafts').insert({
-        company_id: companyId,
-        recipient_name: 'Decision Maker',
-        subject: generatedData.subject,
-        body: generatedData.body,
-        status: 'draft'
+        }),
+        signal: controller.signal,
       });
-    } catch (dbError) {
-      console.warn('[Outreach API] Database insert failed, but returning AI data to UI anyway:', dbError);
-    }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Draft generated successfully',
-      data: generatedData
-    });
+      clearTimeout(timeoutId);
+
+      if (!geminiResponse.ok) {
+        const errData = await geminiResponse.text();
+        console.error('[Score API] Gemini HTTP Error:', {
+          status: geminiResponse.status,
+          statusText: geminiResponse.statusText,
+          body: errData.substring(0, 500)
+        });
+        throw new Error(`Gemini API returned ${geminiResponse.status}: ${errData.substring(0, 200)}`);
+      }
+
+      const aiData = await geminiResponse.json();
+      
+      if (!aiData.candidates?.[0]?.content?.parts?.[0]?.text) {
+        console.error('[Score API] Invalid Gemini response structure:', JSON.stringify(aiData).substring(0, 300));
+        throw new Error('Invalid response structure from Gemini API');
+      }
+
+      let responseText = aiData.candidates[0].content.parts[0].text;
+      
+      // CLEAN MARKDOWN BACKTICKS FROM GEMINI (PREVENT ERROR 500)
+      responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      
+      const generatedData = JSON.parse(responseText);
+
+      console.log(`[Score API] Saving draft to Supabase...`);
+      try {
+        const supabase = await createServerClient();
+        await supabase.from('outreach_drafts').insert({
+          company_id: companyId,
+          recipient_name: 'Decision Maker',
+          subject: generatedData.subject,
+          body: generatedData.body,
+          status: 'draft'
+        });
+      } catch (dbError) {
+        console.warn('[Score API] Database insert failed, but returning AI data to UI anyway:', dbError);
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Draft generated successfully',
+        data: generatedData
+      });
+    } catch (geminiError) {
+      clearTimeout(timeoutId);
+      console.error('[Score API] Gemini API Error:', {
+        message: geminiError instanceof Error ? geminiError.message : String(geminiError),
+        timestamp: new Date().toISOString()
+      });
+      
+      // Return fallback response
+      return NextResponse.json({
+        success: true,
+        message: 'Using template draft due to AI generation delay',
+        data: {
+          subject: `Exciting signals from ${companyName} - Let's connect`,
+          body: `Hi there,\n\nWe noticed some exciting activity at ${companyName} and thought this might be a good time to connect.\n\nWould you be available for a quick 10-minute call next week?\n\nBest,\n\nAlex Mercer\nEnterprise Account Executive\nSignalReach AI`
+        }
+      }, { status: 200 });
+    }
 
   } catch (error) {
     console.error('[Outreach API] Internal Error:', error);
