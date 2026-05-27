@@ -2,10 +2,23 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "signal-reach-ai",
   "compatibility_date": "2026-05-27",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "main": ".open-next/worker.js",
   "observability": {
     "enabled": true
+  },
+  "vars": {
+    "DATA_PROVIDER": "brightdata",
+    "BRIGHTDATA_API_TOKEN": "c1f8425e-83b7-413f-95d7-51ef781eb0ae",
+    "BRIGHTDATA_SERP_ZONE":"serp_api1",
+    "BRIGHTDATA_DATASET_LINKEDIN": "gd_l1viktl72bvl7bjuj0",
+    "BRIGHTDATA_DATASET_REDDIT": "gd_lvz8ah06191smkebj4",
+    "BRIGHTDATA_DATASET_NEWS": "gd_m8ebnr0q2qlklc02fz",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://dctzntluguokutmdrnko.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRjdHpudGx1Z3Vva3V0bWRybmtvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMjEzNzgsImV4cCI6MjA5NDc5NzM3OH0.r4gTW9FGdN7gaWsM2doZVy9WS8ilLZURmbvstgE8kwU",
+    "GEMINI_API_KEY": "AIzaSyBzCoc1Yy8iZRV9PpmkdfMEKZWjxCiZ-7s"
   },
   "assets": {
     "directory": ".open-next/assets",
