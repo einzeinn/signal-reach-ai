@@ -3,7 +3,7 @@ import { scoringPrompt } from '../prompts/scoring.prompt';
 import { outreachPrompt } from '../prompts/outreach.prompt';
 import { JobSignal, RedditSignal, NewsSignal } from '../data-providers/types';
 
-const MODEL_NAME = "gemini-2.5-flash";
+const MODEL_NAME = "gemini-2.0-flash";
 
 export async function calculateIntentScore(
   company: string,

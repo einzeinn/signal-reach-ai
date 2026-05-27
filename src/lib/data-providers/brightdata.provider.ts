@@ -13,7 +13,7 @@ export class BrightDataProvider implements IDataProvider {
       if (!datasetId || !token) throw new Error('Bright Data credentials missing');
 
       // --- LOGIKA FETCH BRIGHT DATA ---
-      const triggerUrl = `https://api.brightdata.com/dca/trigger?dataset_id=${datasetId}&include_errors=true`;
+      const triggerUrl = `https://api.brightdata.com/datasets/v3/trigger?dataset_id=${datasetId}&include_errors=true`;
       const response = await fetch(triggerUrl, {
         method: 'POST',
         headers: {
@@ -23,7 +23,10 @@ export class BrightDataProvider implements IDataProvider {
         body: JSON.stringify([{ keyword: company }])
       });
 
-      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API error: ${response.status} - ${errorText}`);
+      }
       
       const data = await response.json();
       return Array.isArray(data) ? data : [];
@@ -44,7 +47,7 @@ export class BrightDataProvider implements IDataProvider {
       if (!datasetId || !token) throw new Error('Bright Data credentials missing');
 
       // --- LOGIKA FETCH BRIGHT DATA ---
-      const triggerUrl = `https://api.brightdata.com/dca/trigger?dataset_id=${datasetId}&include_errors=true`;
+      const triggerUrl = `https://api.brightdata.com/datasets/v3/trigger?dataset_id=${datasetId}&include_errors=true`;
       const response = await fetch(triggerUrl, {
         method: 'POST',
         headers: {
@@ -54,7 +57,10 @@ export class BrightDataProvider implements IDataProvider {
         body: JSON.stringify([{ keyword: company }])
       });
 
-      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API error: ${response.status} - ${errorText}`);
+      }
       
       const data = await response.json();
       return Array.isArray(data) ? data : [];
@@ -75,7 +81,7 @@ export class BrightDataProvider implements IDataProvider {
       if (!datasetId || !token) throw new Error('Bright Data credentials missing');
 
       // --- LOGIKA FETCH BRIGHT DATA ---
-      const triggerUrl = `https://api.brightdata.com/dca/trigger?dataset_id=${datasetId}&include_errors=true`;
+      const triggerUrl = `https://api.brightdata.com/datasets/v3/trigger?dataset_id=${datasetId}&include_errors=true`;
       const response = await fetch(triggerUrl, {
         method: 'POST',
         headers: {
@@ -85,7 +91,10 @@ export class BrightDataProvider implements IDataProvider {
         body: JSON.stringify([{ keyword: company }])
       });
 
-      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API error: ${response.status} - ${errorText}`);
+      }
       
       const data = await response.json();
       return Array.isArray(data) ? data : [];
